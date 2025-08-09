@@ -28,6 +28,69 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/test-invoices/{invoice}/issue', [InvoiceController::class, 'issue']);
 Route::get('/test-invoices/{invoice}/pdf', [InvoiceController::class, 'generatePDF']);
 
+// Public system routes
+Route::get('/system/health', [SystemController::class, 'health']);
+
+// Public test email route
+Route::post('/test-email', function (Request $request) {
+    $request->validate([
+        'email' => 'required|email',
+        'subject' => 'nullable|string',
+        'message' => 'nullable|string',
+    ]);
+
+    try {
+        // Get SMTP settings
+        $smtpSettings = \App\Models\Setting::where('company_id', 1)
+            ->whereIn('code', [
+                'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password',
+                'smtp_encryption', 'smtp_from_email', 'smtp_from_name'
+            ])
+            ->pluck('value', 'code')
+            ->toArray();
+
+        // Configure mail settings
+        config([
+            'mail.mailers.smtp.host' => $smtpSettings['smtp_host'],
+            'mail.mailers.smtp.port' => $smtpSettings['smtp_port'],
+            'mail.mailers.smtp.username' => $smtpSettings['smtp_username'] ?? '',
+            'mail.mailers.smtp.password' => $smtpSettings['smtp_password'] ?? '',
+            'mail.mailers.smtp.encryption' => $smtpSettings['smtp_encryption'] ?? 'tls',
+            'mail.from.address' => $smtpSettings['smtp_from_email'] ?? 'noreply@example.com',
+            'mail.from.name' => $smtpSettings['smtp_from_name'] ?? 'Sistema de Facturación',
+        ]);
+
+        $subject = $request->subject ?? 'Prueba de Email - Sistema de Facturación';
+        $message = $request->message ?? 'Este es un correo de prueba para verificar la configuración SMTP.';
+
+        \Illuminate\Support\Facades\Mail::send([], [], function ($mailMessage) use ($request, $subject, $message) {
+            $mailMessage->to($request->email)
+                    ->subject($subject)
+                    ->html($message);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Correo enviado exitosamente',
+            'data' => [
+                'recipient' => $request->email,
+                'subject' => $subject,
+            ],
+        ]);
+
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error('Test email failed', [
+            'error' => $e->getMessage(),
+            'email' => $request->email,
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error enviando correo: ' . $e->getMessage(),
+        ], 500);
+    }
+});
+
 // Test route with auth but different approach
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/test-invoices-auth/{invoice}/issue', [InvoiceController::class, 'issue']);
@@ -57,6 +120,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/invoices/{invoice}/issue', [InvoiceController::class, 'issue']);
     Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel']);
     Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'generatePDF']);
+    Route::post('/invoices/{invoice}/send-email', [InvoiceController::class, 'sendEmail']);
+    Route::post('/invoices/{invoice}/send-email-no-pdf', [InvoiceController::class, 'sendEmailWithoutPDF']);
+    
     
     // Test route without auth
     Route::post('/test-invoices/{invoice}/issue', [InvoiceController::class, 'issue']);
@@ -69,7 +135,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // System
     Route::get('/system/info', [SystemController::class, 'info']);
-    Route::get('/system/health', [SystemController::class, 'health']);
+    Route::get('/system/settings', [SystemController::class, 'getSettings']);
+    Route::put('/system/settings', [SystemController::class, 'updateSettings']);
+    Route::get('/system/company-info', [SystemController::class, 'getCompanyInfo']);
 });
 
  

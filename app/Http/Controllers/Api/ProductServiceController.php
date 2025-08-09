@@ -20,7 +20,7 @@ class ProductServiceController extends Controller
         
         $query = ProductService::query();
         
-        // Filtrar por empresa del usuario
+        // Filter by user's company
         if ($companyId) {
             $query->where('company_id', $companyId);
         }

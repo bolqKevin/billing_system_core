@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Enable CORS for API routes
         $middleware->group('api', [
             \Illuminate\Http\Middleware\HandleCors::class,
+            \App\Http\Middleware\ConfigureMail::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
