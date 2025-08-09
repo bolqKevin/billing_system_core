@@ -21,6 +21,7 @@ class Customer extends Model
         'canton',
         'exact_address',
         'status',
+        'company_id',
     ];
 
     protected $casts = [
@@ -34,6 +35,14 @@ class Customer extends Model
     public function invoices()
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    /**
+     * Get the company that owns the customer.
+     */
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
     }
 
     /**

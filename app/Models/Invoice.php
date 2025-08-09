@@ -26,6 +26,7 @@ class Invoice extends Model
         'xml_invoice',
         'xml_treasury_response',
         'creation_user_id',
+        'company_id',
     ];
 
     protected $casts = [
@@ -53,6 +54,14 @@ class Invoice extends Model
     public function creationUser()
     {
         return $this->belongsTo(User::class, 'creation_user_id');
+    }
+
+    /**
+     * Get the company that owns the invoice.
+     */
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
     }
 
     /**

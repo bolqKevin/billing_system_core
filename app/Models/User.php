@@ -23,6 +23,7 @@ class User extends Authenticatable
         'password',
         'role_id',
         'status',
+        'company_id',
     ];
 
     /**
@@ -54,6 +55,14 @@ class User extends Authenticatable
     public function role()
     {
         return $this->belongsTo(Role::class);
+    }
+
+    /**
+     * Get the company that owns the user.
+     */
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
     }
 
     /**

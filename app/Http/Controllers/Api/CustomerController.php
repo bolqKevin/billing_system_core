@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class CustomerController extends Controller
 {
@@ -14,7 +15,15 @@ class CustomerController extends Controller
      */
     public function index(Request $request)
     {
+        $user = Auth::user();
+        $companyId = $user ? $user->company_id : null;
+        
         $query = Customer::query();
+        
+        // Filtrar por empresa del usuario
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        }
 
         // Search functionality
         if ($request->has('search')) {
@@ -66,7 +75,9 @@ class CustomerController extends Controller
                 'identification_number.required' => 'El número de identificación es obligatorio.',
             ]);
 
-            $customer = Customer::create($request->all());
+            $data = $request->all();
+            $data['company_id'] = Auth::user()->company_id;
+            $customer = Customer::create($data);
 
             return response()->json([
                 'message' => 'Cliente creado exitosamente',

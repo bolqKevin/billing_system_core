@@ -26,6 +26,7 @@ Route::post('/login', [AuthController::class, 'login']);
 
 // Test route without auth
 Route::post('/test-invoices/{invoice}/issue', [InvoiceController::class, 'issue']);
+Route::get('/test-invoices/{invoice}/pdf', [InvoiceController::class, 'generatePDF']);
 
 // Test route with auth but different approach
 Route::middleware('auth:sanctum')->group(function () {
@@ -55,6 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('invoices', InvoiceController::class);
     Route::post('/invoices/{invoice}/issue', [InvoiceController::class, 'issue']);
     Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel']);
+    Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'generatePDF']);
     
     // Test route without auth
     Route::post('/test-invoices/{invoice}/issue', [InvoiceController::class, 'issue']);

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ProductService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class ProductServiceController extends Controller
 {
@@ -14,7 +15,15 @@ class ProductServiceController extends Controller
      */
     public function index(Request $request)
     {
+        $user = Auth::user();
+        $companyId = $user ? $user->company_id : null;
+        
         $query = ProductService::query();
+        
+        // Filtrar por empresa del usuario
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        }
 
         // Search functionality
         if ($request->has('search')) {
@@ -55,7 +64,9 @@ class ProductServiceController extends Controller
             'status' => 'in:Active,Inactive',
         ]);
 
-        $product = ProductService::create($request->all());
+        $data = $request->all();
+        $data['company_id'] = Auth::user()->company_id;
+        $product = ProductService::create($data);
 
         return response()->json([
             'message' => 'Producto/Servicio creado exitosamente',

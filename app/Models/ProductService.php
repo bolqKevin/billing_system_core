@@ -19,6 +19,7 @@ class ProductService extends Model
         'unit_price',
         'tax_rate',
         'status',
+        'company_id',
     ];
 
     protected $casts = [
@@ -34,6 +35,14 @@ class ProductService extends Model
     public function invoiceDetails()
     {
         return $this->hasMany(InvoiceDetail::class, 'product_service_id');
+    }
+
+    /**
+     * Get the company that owns the product/service.
+     */
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
     }
 
     /**

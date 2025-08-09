@@ -37,6 +37,38 @@ class Company extends Model
     }
 
     /**
+     * Get the users for this company.
+     */
+    public function users()
+    {
+        return $this->hasMany(User::class);
+    }
+
+    /**
+     * Get the customers for this company.
+     */
+    public function customers()
+    {
+        return $this->hasMany(Customer::class);
+    }
+
+    /**
+     * Get the products/services for this company.
+     */
+    public function productsServices()
+    {
+        return $this->hasMany(ProductService::class);
+    }
+
+    /**
+     * Get the invoices for this company.
+     */
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    /**
      * Scope a query to only include active companies.
      */
     public function scopeActive($query)

@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\InvoiceDetail;
 use App\Models\ProductService;
+use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use TCPDF;
 
 class InvoiceController extends Controller
 {
@@ -18,7 +20,15 @@ class InvoiceController extends Controller
      */
     public function index(Request $request)
     {
+        $user = Auth::user();
+        $companyId = $user ? $user->company_id : null;
+        
         $query = Invoice::with(['customer', 'creationUser', 'details.productService']);
+        
+        // Filtrar por empresa del usuario
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        }
 
         // Search functionality
         if ($request->has('search')) {
@@ -70,7 +80,7 @@ class InvoiceController extends Controller
             'customer_id' => 'required|exists:customers,id',
             'issue_date' => 'nullable|date',
             'due_date' => 'nullable|date|after_or_equal:issue_date',
-            'payment_method' => 'required|in:Cash,Transfer,Card,Check,Other',
+            'payment_method' => 'required|in:Cash,Transfer,Check',
             'sale_condition' => 'required|in:Cash,Credit',
             'credit_days' => 'nullable|integer|min:0',
             'observations' => 'nullable|string',
@@ -106,6 +116,7 @@ class InvoiceController extends Controller
                 'observations' => $request->observations,
                 'status' => ucfirst($status),
                 'creation_user_id' => $request->user()->id,
+                'company_id' => $request->user()->company_id,
                 'subtotal' => $request->subtotal ?? 0,
                 'total_tax' => $request->total_tax ?? 0,
                 'total_discount' => $request->total_discount ?? 0,
@@ -189,7 +200,7 @@ class InvoiceController extends Controller
             'customer_id' => 'required|exists:customers,id',
             'issue_date' => 'nullable|date',
             'due_date' => 'nullable|date|after_or_equal:issue_date',
-            'payment_method' => 'required|in:Cash,Transfer,Card,Check,Other',
+            'payment_method' => 'required|in:Cash,Transfer,Check',
             'sale_condition' => 'required|in:Cash,Credit',
             'credit_days' => 'nullable|integer|min:0',
             'observations' => 'nullable|string',
@@ -373,5 +384,171 @@ class InvoiceController extends Controller
             'message' => 'Factura cancelada exitosamente',
             'data' => $invoice,
         ]);
+    }
+
+    /**
+     * Generate PDF for invoice
+     */
+    public function generatePDF($invoiceId)
+    {
+        // Cargar la factura manualmente con todas las relaciones necesarias
+        $invoice = Invoice::with(['customer', 'details.productService', 'creationUser'])->find($invoiceId);
+        
+        if (!$invoice) {
+            return response()->json([
+                'message' => 'Factura no encontrada',
+            ], 404);
+        }
+
+        // Crear nueva instancia de TCPDF
+        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        
+        // Configurar información del documento
+        $pdf->SetCreator('Sistema de Facturación');
+        $pdf->SetAuthor('Mi Empresa S.A.');
+        $pdf->SetTitle('Factura ' . $invoice->invoice_number);
+        $pdf->SetSubject('Factura');
+        
+        // Configurar márgenes
+        $pdf->SetMargins(15, 15, 15);
+        $pdf->SetHeaderMargin(5);
+        $pdf->SetFooterMargin(10);
+        
+        // Configurar saltos de página automáticos
+        $pdf->SetAutoPageBreak(TRUE, 25);
+        
+        // Configurar fuente con soporte para caracteres especiales
+        $pdf->SetFont('dejavusans', '', 10);
+        
+        // Agregar página
+        $pdf->AddPage();
+        
+        // Obtener información de la empresa del usuario autenticado
+        $user = Auth::user();
+        $company = $user ? $user->company : Company::active()->first();
+        
+        // Información de la empresa
+        $companyName = $company ? $company->business_name : 'Mi Empresa S.A.';
+        $companyAddress = $company ? $company->address : 'San José, Costa Rica';
+        $companyPhone = $company ? $company->phone : '+506 2222-2222';
+        $companyEmail = $company ? $company->email : 'info@miempresa.com';
+        $companyTaxId = $company ? $company->legal_id : '3-101-123456';
+        
+        // Encabezado
+        $pdf->SetFont('dejavusans', 'B', 16);
+        $pdf->Cell(0, 10, $companyName, 0, 1, 'C');
+        $pdf->SetFont('dejavusans', '', 10);
+        $pdf->Cell(0, 5, $companyAddress, 0, 1, 'C');
+        $pdf->Cell(0, 5, 'Tel: ' . $companyPhone . ' | Email: ' . $companyEmail, 0, 1, 'C');
+        $pdf->Cell(0, 5, 'Cédula Jurídica: ' . $companyTaxId, 0, 1, 'C');
+        $pdf->Ln(10);
+        
+        // Información de la factura y cliente
+        $pdf->SetFont('dejavusans', 'B', 12);
+        $pdf->Cell(95, 10, 'FACTURA', 0, 0);
+        $pdf->Cell(95, 10, 'CLIENTE', 0, 1, 'R');
+        
+        $pdf->SetFont('dejavusans', '', 10);
+        $pdf->Cell(95, 5, 'Número: ' . $invoice->invoice_number, 0, 0);
+        $pdf->Cell(95, 5, $invoice->customer ? $invoice->customer->name_business_name : 'Cliente no especificado', 0, 1, 'R');
+        
+        $pdf->Cell(95, 5, 'Fecha: ' . \Carbon\Carbon::parse($invoice->issue_date)->format('d/m/Y'), 0, 0);
+        if ($invoice->customer && $invoice->customer->identification_number) {
+            $pdf->Cell(95, 5, 'Cédula: ' . $invoice->customer->identification_number, 0, 1, 'R');
+        } else {
+            $pdf->Cell(95, 5, '', 0, 1, 'R');
+        }
+        
+        $pdf->Cell(95, 5, 'Estado: ' . ($invoice->status == 'Draft' ? 'Borrador' : ($invoice->status == 'Issued' ? 'Emitida' : 'Anulada')), 0, 0);
+        if ($invoice->customer && $invoice->customer->address) {
+            $pdf->Cell(95, 5, 'Dirección: ' . $invoice->customer->address, 0, 1, 'R');
+        } else {
+            $pdf->Cell(95, 5, '', 0, 1, 'R');
+        }
+        
+        $pdf->Ln(10);
+        
+        // Título de la tabla
+        $pdf->SetFont('dejavusans', 'B', 12);
+        $pdf->Cell(0, 10, 'DETALLE DE LA FACTURA', 0, 1);
+        
+        // Encabezados de la tabla
+        $pdf->SetFont('dejavusans', 'B', 9);
+        $pdf->Cell(10, 8, '#', 1, 0, 'C');
+        $pdf->Cell(70, 8, 'Descripción', 1, 0, 'L');
+        $pdf->Cell(20, 8, 'Cantidad', 1, 0, 'C');
+        $pdf->Cell(25, 8, 'Precio Unit.', 1, 0, 'R');
+        $pdf->Cell(20, 8, 'Descuento', 1, 0, 'R');
+        $pdf->Cell(25, 8, 'Subtotal', 1, 0, 'R');
+        $pdf->Cell(25, 8, 'Total', 1, 1, 'R');
+        
+        // Detalles de la factura
+        $pdf->SetFont('dejavusans', '', 9);
+        foreach ($invoice->details as $index => $detail) {
+            $pdf->Cell(10, 6, $index + 1, 1, 0, 'C');
+            $pdf->Cell(70, 6, $detail->productService ? $detail->productService->name_description : 'Producto no especificado', 1, 0, 'L');
+            $pdf->Cell(20, 6, number_format($detail->quantity, 2), 1, 0, 'C');
+            $pdf->Cell(25, 6, '₡' . number_format($detail->unit_price, 2), 1, 0, 'R');
+            $pdf->Cell(20, 6, $detail->item_discount > 0 ? '₡' . number_format($detail->item_discount, 2) : '-', 1, 0, 'R');
+            $pdf->Cell(25, 6, '₡' . number_format($detail->item_subtotal, 2), 1, 0, 'R');
+            $pdf->Cell(25, 6, '₡' . number_format($detail->item_total, 2), 1, 1, 'R');
+        }
+        
+        $pdf->Ln(5);
+        
+        // Totales
+        $pdf->SetFont('dejavusans', 'B', 10);
+        $pdf->Cell(125, 6, 'Subtotal:', 0, 0, 'R');
+        $pdf->Cell(25, 6, '₡' . number_format($invoice->subtotal, 2), 0, 1, 'R');
+        
+        if ($invoice->total_discount > 0) {
+            $pdf->Cell(125, 6, 'Descuentos:', 0, 0, 'R');
+            $pdf->Cell(25, 6, '₡' . number_format($invoice->total_discount, 2), 0, 1, 'R');
+        }
+        
+        $pdf->Cell(125, 6, 'Impuesto (13%):', 0, 0, 'R');
+        $pdf->Cell(25, 6, '₡' . number_format($invoice->total_tax, 2), 0, 1, 'R');
+        
+        $pdf->SetFont('dejavusans', 'B', 12);
+        $pdf->Cell(125, 8, 'TOTAL:', 0, 0, 'R');
+        $pdf->Cell(25, 8, '₡' . number_format($invoice->grand_total, 2), 0, 1, 'R');
+        
+        $pdf->Ln(10);
+        
+        // Información de pago
+        $pdf->SetFont('dejavusans', 'B', 11);
+        $pdf->Cell(0, 8, 'INFORMACIÓN DE PAGO', 0, 1);
+        $pdf->SetFont('dejavusans', '', 10);
+        $pdf->Cell(0, 5, 'Condición de Venta: ' . ($invoice->sale_condition == 'Cash' ? 'Contado' : 'Crédito (' . $invoice->credit_days . ' días)'), 0, 1);
+        $pdf->Cell(0, 5, 'Método de Pago: ' . ($invoice->payment_method == 'Cash' ? 'Contado' : ($invoice->payment_method == 'Transfer' ? 'Transferencia' : ($invoice->payment_method == 'Check' ? 'Cheque' : 'Otro'))), 0, 1);
+        
+        if ($invoice->due_date) {
+            $pdf->Cell(0, 5, 'Fecha de Vencimiento: ' . \Carbon\Carbon::parse($invoice->due_date)->format('d/m/Y'), 0, 1);
+        }
+        
+        // Observaciones
+        if ($invoice->observations) {
+            $pdf->Ln(5);
+            $pdf->SetFont('dejavusans', 'B', 11);
+            $pdf->Cell(0, 8, 'OBSERVACIONES', 0, 1);
+            $pdf->SetFont('dejavusans', '', 10);
+            $pdf->MultiCell(0, 5, $invoice->observations, 0, 'L');
+        }
+        
+        // Pie de página
+        $pdf->SetY(-30);
+        $pdf->SetFont('dejavusans', '', 8);
+        $pdf->Cell(0, 5, $companyName, 0, 1, 'C');
+        $pdf->Cell(0, 5, $companyAddress . ' | Tel: ' . $companyPhone . ' | Email: ' . $companyEmail, 0, 1, 'C');
+        $pdf->Cell(0, 5, 'Cédula Jurídica: ' . $companyTaxId, 0, 1, 'C');
+        $pdf->Cell(0, 5, 'Factura generada el ' . \Carbon\Carbon::now()->format('d/m/Y H:i:s'), 0, 1, 'C');
+        
+        // Generar el PDF
+        $pdfContent = $pdf->Output('factura-' . $invoice->invoice_number . '.pdf', 'S');
+        
+        // Retornar como respuesta
+        return response($pdfContent)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'inline; filename="factura-' . $invoice->invoice_number . '.pdf"');
     }
 } 
