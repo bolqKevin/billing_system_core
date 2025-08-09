@@ -8,6 +8,8 @@ use App\Models\InvoiceDetail;
 use App\Models\ProductService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class InvoiceController extends Controller
 {
@@ -16,7 +18,7 @@ class InvoiceController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Invoice::with(['customer', 'creationUser']);
+        $query = Invoice::with(['customer', 'creationUser', 'details.productService']);
 
         // Search functionality
         if ($request->has('search')) {
@@ -50,6 +52,12 @@ class InvoiceController extends Controller
 
         $invoices = $query->orderBy('created_at', 'desc')->paginate(15);
 
+        // Transform data for frontend
+        $invoices->getCollection()->transform(function ($invoice) {
+            $invoice->customer_name = $invoice->customer->name_business_name ?? '';
+            return $invoice;
+        });
+
         return response()->json($invoices);
     }
 
@@ -66,6 +74,7 @@ class InvoiceController extends Controller
             'sale_condition' => 'required|in:Cash,Credit',
             'credit_days' => 'nullable|integer|min:0',
             'observations' => 'nullable|string',
+            'status' => 'nullable|in:Draft,Issued,Cancelled',
             'items' => 'required|array|min:1',
             'items.*.product_service_id' => 'required|exists:products_services,id',
             'items.*.quantity' => 'required|numeric|min:0.01',
@@ -81,22 +90,26 @@ class InvoiceController extends Controller
             $nextNumber = $lastInvoice ? intval(substr($lastInvoice->invoice_number, 4)) + 1 : 1;
             $invoiceNumber = 'INV-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
 
+            // Set default values
+            $status = $request->status ?? 'Draft';
+            $issueDate = $request->issue_date ?? now()->format('Y-m-d');
+
             // Create invoice
             $invoice = Invoice::create([
                 'invoice_number' => $invoiceNumber,
                 'customer_id' => $request->customer_id,
-                'issue_date' => $request->issue_date,
+                'issue_date' => $issueDate,
                 'due_date' => $request->due_date,
                 'payment_method' => $request->payment_method,
                 'sale_condition' => $request->sale_condition,
                 'credit_days' => $request->credit_days ?? 0,
                 'observations' => $request->observations,
-                'status' => 'Draft',
+                'status' => ucfirst($status),
                 'creation_user_id' => $request->user()->id,
-                'subtotal' => 0,
-                'total_tax' => 0,
-                'total_discount' => 0,
-                'grand_total' => 0,
+                'subtotal' => $request->subtotal ?? 0,
+                'total_tax' => $request->total_tax ?? 0,
+                'total_discount' => $request->total_discount ?? 0,
+                'grand_total' => $request->grand_total ?? 0,
             ]);
 
             // Create invoice details
@@ -128,13 +141,15 @@ class InvoiceController extends Controller
                 $totalDiscount += $itemDiscount;
             }
 
-            // Update invoice totals
-            $invoice->update([
-                'subtotal' => $subtotal,
-                'total_tax' => $totalTax,
-                'total_discount' => $totalDiscount,
-                'grand_total' => $subtotal - $totalDiscount + $totalTax,
-            ]);
+            // Update invoice totals if not provided
+            if (!$request->subtotal) {
+                $invoice->update([
+                    'subtotal' => $subtotal,
+                    'total_tax' => $totalTax,
+                    'total_discount' => $totalDiscount,
+                    'grand_total' => $subtotal - $totalDiscount + $totalTax,
+                ]);
+            }
 
             DB::commit();
 
@@ -178,6 +193,7 @@ class InvoiceController extends Controller
             'sale_condition' => 'required|in:Cash,Credit',
             'credit_days' => 'nullable|integer|min:0',
             'observations' => 'nullable|string',
+            'status' => 'nullable|in:Draft,Issued,Cancelled',
             'items' => 'required|array|min:1',
             'items.*.product_service_id' => 'required|exists:products_services,id',
             'items.*.quantity' => 'required|numeric|min:0.01',
@@ -189,7 +205,7 @@ class InvoiceController extends Controller
             DB::beginTransaction();
 
             // Update invoice
-            $invoice->update([
+            $updateData = [
                 'customer_id' => $request->customer_id,
                 'issue_date' => $request->issue_date,
                 'due_date' => $request->due_date,
@@ -197,7 +213,14 @@ class InvoiceController extends Controller
                 'sale_condition' => $request->sale_condition,
                 'credit_days' => $request->credit_days ?? 0,
                 'observations' => $request->observations,
-            ]);
+            ];
+
+            // Update status if provided
+            if ($request->has('status')) {
+                $updateData['status'] = ucfirst($request->status);
+            }
+
+            $invoice->update($updateData);
 
             // Delete existing details
             $invoice->details()->delete();
@@ -275,11 +298,43 @@ class InvoiceController extends Controller
     /**
      * Issue an invoice
      */
-    public function issue(Invoice $invoice)
+    public function issue($invoiceId)
     {
+        // Obtener la factura manualmente
+        $invoice = Invoice::find($invoiceId);
+        
+        Log::info('Método issue llamado', [
+            'requested_id' => $invoiceId,
+            'invoice_found' => $invoice ? 'SÍ' : 'NO',
+            'invoice_id' => $invoice ? $invoice->id : 'null',
+            'invoice_number' => $invoice ? $invoice->invoice_number : 'null',
+            'current_status' => $invoice ? $invoice->status : 'null',
+            'request_url' => request()->url(),
+            'request_method' => request()->method(),
+            'user_authenticated' => Auth::check(),
+            'user_id' => Auth::id()
+        ]);
+        
+        // Verificar si la factura existe
+        if (!$invoice) {
+            Log::error('Factura no encontrada', [
+                'requested_id' => $invoiceId
+            ]);
+            
+            return response()->json([
+                'message' => 'Factura no encontrada',
+            ], 404);
+        }
+        
+        Log::info('Intentando emitir factura', [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'current_status' => $invoice->status
+        ]);
+        
         if ($invoice->status !== 'Draft') {
             return response()->json([
-                'message' => 'Solo se pueden emitir facturas en estado borrador',
+                'message' => 'Solo se pueden emitir facturas en estado borrador. Estado actual: ' . $invoice->status,
             ], 400);
         }
 

@@ -24,6 +24,14 @@ use Illuminate\Support\Facades\Route;
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
 
+// Test route without auth
+Route::post('/test-invoices/{invoice}/issue', [InvoiceController::class, 'issue']);
+
+// Test route with auth but different approach
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/test-invoices-auth/{invoice}/issue', [InvoiceController::class, 'issue']);
+});
+
 
 
 
@@ -47,6 +55,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('invoices', InvoiceController::class);
     Route::post('/invoices/{invoice}/issue', [InvoiceController::class, 'issue']);
     Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel']);
+    
+    // Test route without auth
+    Route::post('/test-invoices/{invoice}/issue', [InvoiceController::class, 'issue']);
 
     // Reports
     Route::get('/reports/sales', [ReportController::class, 'sales']);
