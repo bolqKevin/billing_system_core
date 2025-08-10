@@ -295,19 +295,56 @@ class InvoiceController extends Controller
     /**
      * Remove the specified invoice
      */
-    public function destroy(Invoice $invoice)
+    public function destroy($invoiceId)
     {
-        if ($invoice->status !== 'Draft') {
+        // Buscar la factura manualmente
+        $invoice = Invoice::find($invoiceId);
+        
+        if (!$invoice) {
+            Log::error('Factura no encontrada para eliminar', ['invoice_id' => $invoiceId]);
             return response()->json([
-                'message' => 'Solo se pueden eliminar facturas en estado borrador',
+                'message' => 'Factura no encontrada',
+            ], 404);
+        }
+
+        Log::info('Intentando eliminar factura', [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'current_status' => $invoice->status
+        ]);
+
+        if ($invoice->status !== 'Draft') {
+            Log::warning('Intento de eliminar factura no borrador', [
+                'invoice_id' => $invoice->id,
+                'current_status' => $invoice->status
+            ]);
+            
+            return response()->json([
+                'message' => 'Solo se pueden eliminar facturas en estado borrador. Estado actual: ' . $invoice->status,
             ], 400);
         }
 
-        $invoice->delete();
+        try {
+            $invoice->delete();
+            
+            Log::info('Factura eliminada exitosamente', [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number
+            ]);
 
-        return response()->json([
-            'message' => 'Factura eliminada exitosamente',
-        ]);
+            return response()->json([
+                'message' => 'Factura eliminada exitosamente',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error al eliminar factura', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'message' => 'Error al eliminar la factura: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
@@ -367,21 +404,82 @@ class InvoiceController extends Controller
     /**
      * Cancel an invoice
      */
-    public function cancel(Request $request, Invoice $invoice)
+    public function cancel(Request $request, $invoiceId)
     {
-        if (!in_array($invoice->status, ['Draft', 'Issued'])) {
+        // Buscar la factura manualmente
+        $invoice = Invoice::find($invoiceId);
+        
+        if (!$invoice) {
+            Log::error('Factura no encontrada', ['invoice_id' => $invoiceId]);
             return response()->json([
-                'message' => 'No se puede cancelar una factura en este estado',
+                'message' => 'Factura no encontrada',
+            ], 404);
+        }
+        
+        // Debug: Log the invoice status
+        Log::info('Intentando cancelar factura', [
+            'invoice_id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'current_status' => $invoice->status,
+            'current_status_type' => gettype($invoice->status),
+            'current_status_length' => strlen($invoice->status),
+            'allowed_statuses' => ['Draft', 'Issued'],
+            'request_data' => $request->all(),
+            'invoice_attributes' => $invoice->getAttributes()
+        ]);
+
+        // Verificación más detallada del estado
+        $currentStatus = trim($invoice->status);
+        $allowedStatuses = ['Draft', 'Issued'];
+        
+        Log::info('Verificación detallada del estado', [
+            'current_status' => $currentStatus,
+            'current_status_quoted' => "'{$currentStatus}'",
+            'is_in_array' => in_array($currentStatus, $allowedStatuses),
+            'allowed_statuses' => $allowedStatuses
+        ]);
+
+        if (!in_array($currentStatus, $allowedStatuses)) {
+            Log::warning('Factura no puede ser cancelada - estado incorrecto', [
+                'invoice_id' => $invoice->id,
+                'current_status' => $currentStatus,
+                'current_status_quoted' => "'{$currentStatus}'",
+                'allowed_statuses' => $allowedStatuses
+            ]);
+            
+            return response()->json([
+                'message' => 'No se puede cancelar una factura en este estado. Estado actual: ' . $currentStatus,
             ], 400);
         }
 
-        $request->validate([
-            'cancellation_reason' => 'required|string',
-        ]);
+        try {
+            $request->validate([
+                'cancellation_reason' => 'required|string',
+            ]);
+            
+            Log::info('Validación exitosa', [
+                'cancellation_reason' => $request->cancellation_reason,
+                'reason_length' => strlen($request->cancellation_reason)
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Error de validación', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all()
+            ]);
+            
+            return response()->json([
+                'message' => 'Error de validación: ' . implode(', ', collect($e->errors())->flatten()->toArray()),
+            ], 422);
+        }
 
         $invoice->update([
             'status' => 'Cancelled',
             'cancellation_reason' => $request->cancellation_reason,
+        ]);
+
+        Log::info('Factura cancelada exitosamente', [
+            'invoice_id' => $invoice->id,
+            'new_status' => 'Cancelled'
         ]);
 
         return response()->json([
