@@ -1,12 +1,14 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AuditController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\ProductServiceController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SystemController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -96,10 +98,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/test-invoices-auth/{invoice}/issue', [InvoiceController::class, 'issue']);
 });
 
-
-
-
-
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     // Auth routes
@@ -109,35 +107,71 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index']);
 
-    // Customers
-    Route::apiResource('customers', CustomerController::class);
+    // Customers - Solo lectura para facturadores
+    Route::get('/customers', [CustomerController::class, 'index'])->middleware('permission:view_customer');
+    Route::get('/customers/{customer}', [CustomerController::class, 'show'])->middleware('permission:view_customer');
+    Route::post('/customers', [CustomerController::class, 'store'])->middleware('permission:create_customer');
+    Route::put('/customers/{customer}', [CustomerController::class, 'update'])->middleware('permission:update_customer');
+    Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])->middleware('permission:delete_customer');
 
-    // Products/Services
-    Route::apiResource('products-services', ProductServiceController::class);
+    // Products/Services - Solo lectura para facturadores
+    Route::get('/products-services', [ProductServiceController::class, 'index'])->middleware('permission:view_product');
+    Route::get('/products-services/{productService}', [ProductServiceController::class, 'show'])->middleware('permission:view_product');
+    Route::post('/products-services', [ProductServiceController::class, 'store'])->middleware('permission:create_product');
+    Route::put('/products-services/{productService}', [ProductServiceController::class, 'update'])->middleware('permission:update_product');
+    Route::delete('/products-services/{productService}', [ProductServiceController::class, 'destroy'])->middleware('permission:delete_product');
 
-    // Invoices
-    Route::apiResource('invoices', InvoiceController::class);
-    Route::post('/invoices/{invoice}/issue', [InvoiceController::class, 'issue']);
-    Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel']);
-    Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'generatePDF']);
-    Route::post('/invoices/{invoice}/send-email', [InvoiceController::class, 'sendEmail']);
-    Route::post('/invoices/{invoice}/send-email-no-pdf', [InvoiceController::class, 'sendEmailWithoutPDF']);
-    
+    // Users - Solo administradores
+    Route::get('/users/roles', [UserController::class, 'getRoles'])->middleware('permission:manage_users');
+    Route::get('/users/stats', [UserController::class, 'getStats'])->middleware('permission:manage_users');
+    Route::get('/users', [UserController::class, 'index'])->middleware('permission:manage_users');
+    Route::post('/users', [UserController::class, 'store'])->middleware('permission:manage_users');
+    Route::get('/users/{user}', [UserController::class, 'show'])->middleware('permission:manage_users');
+    Route::put('/users/{user}', [UserController::class, 'update'])->middleware('permission:manage_users');
+    Route::delete('/users/{user}', [UserController::class, 'destroy'])->middleware('permission:manage_users');
+    Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->middleware('permission:manage_users');
+
+    // Invoices - Permisos específicos para facturadores
+    Route::get('/invoices', [InvoiceController::class, 'index'])->middleware('permission:view_invoice');
+    Route::post('/invoices', [InvoiceController::class, 'store'])->middleware('permission:create_invoice');
+    Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->middleware('permission:view_invoice');
+    Route::put('/invoices/{invoice}', [InvoiceController::class, 'update'])->middleware('permission:update_invoice');
+    Route::delete('/invoices/{invoice}', [InvoiceController::class, 'destroy'])->middleware('permission:delete_invoice');
+    Route::post('/invoices/{invoice}/issue', [InvoiceController::class, 'issue'])->middleware('permission:update_invoice');
+    Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:cancel_invoice');
+    Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'generatePDF'])->middleware('permission:generate_pdf');
+    Route::post('/invoices/{invoice}/send-email', [InvoiceController::class, 'sendEmail'])->middleware('permission:send_email');
+    Route::post('/invoices/{invoice}/send-email-no-pdf', [InvoiceController::class, 'sendEmailWithoutPDF'])->middleware('permission:send_email');
     
     // Test route without auth
     Route::post('/test-invoices/{invoice}/issue', [InvoiceController::class, 'issue']);
 
-    // Reports
-    Route::get('/reports/sales', [ReportController::class, 'sales']);
-    Route::get('/reports/customers', [ReportController::class, 'customers']);
-    Route::get('/reports/products', [ReportController::class, 'products']);
-    Route::get('/reports/monthly-sales', [ReportController::class, 'monthlySales']);
+    // Reports - Solo lectura para facturadores
+    Route::get('/reports/sales', [ReportController::class, 'sales'])->middleware('permission:view_reports');
+    Route::get('/reports/customers', [ReportController::class, 'customers'])->middleware('permission:view_reports');
+    Route::get('/reports/products', [ReportController::class, 'products'])->middleware('permission:view_reports');
+    Route::get('/reports/monthly-sales', [ReportController::class, 'monthlySales'])->middleware('permission:view_reports');
 
-    // System
-    Route::get('/system/info', [SystemController::class, 'info']);
-    Route::get('/system/settings', [SystemController::class, 'getSettings']);
-    Route::put('/system/settings', [SystemController::class, 'updateSettings']);
-    Route::get('/system/company-info', [SystemController::class, 'getCompanyInfo']);
+    // System - Solo administradores
+    Route::get('/system/info', [SystemController::class, 'info'])->middleware('permission:configure_system');
+    Route::get('/system/settings', [SystemController::class, 'getSettings'])->middleware('permission:configure_system');
+    Route::put('/system/settings', [SystemController::class, 'updateSettings'])->middleware('permission:configure_system');
+    Route::get('/system/company-info', [SystemController::class, 'getCompanyInfo'])->middleware('permission:configure_system');
+
+    // Audit - Solo administradores
+    Route::get('/audit/movements', [AuditController::class, 'getMovementLogs'])->middleware('permission:view_logs');
+    Route::get('/audit/logins', [AuditController::class, 'getLoginLogs'])->middleware('permission:view_logs');
+    Route::get('/audit/users', [AuditController::class, 'getUsers'])->middleware('permission:view_logs');
+    Route::get('/audit/statistics', [AuditController::class, 'getStatistics'])->middleware('permission:view_logs');
+    Route::post('/audit/export', [AuditController::class, 'exportLogs'])->middleware('permission:view_logs');
+    
+    // Rutas de prueba sin middleware de permisos
+    Route::get('/audit/test-movements', [AuditController::class, 'getMovementLogs']);
+    Route::get('/audit/test-logins', [AuditController::class, 'getLoginLogs']);
 });
+
+// Rutas públicas temporales para debug
+Route::get('/audit/public-logins', [AuditController::class, 'getLoginLogs']);
+Route::get('/audit/public-movements', [AuditController::class, 'getMovementLogs']);
 
  

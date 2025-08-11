@@ -9,14 +9,14 @@ class UserLoginLog extends Model
 {
     use HasFactory;
 
-    public $timestamps = false;
-
     protected $table = 'user_login_log';
 
     protected $fillable = [
         'user_id',
         'username',
         'event_type',
+        'created_at',
+        'updated_at',
     ];
 
     protected $casts = [

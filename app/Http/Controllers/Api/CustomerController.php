@@ -7,6 +7,7 @@ use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use App\Helpers\AuditHelper;
 
 class CustomerController extends Controller
 {
@@ -79,6 +80,9 @@ class CustomerController extends Controller
             $data['company_id'] = Auth::user()->company_id;
             $customer = Customer::create($data);
 
+            // Log the creation
+            AuditHelper::logCreate('customers', $customer->id);
+
             return response()->json([
                 'message' => 'Cliente creado exitosamente',
                 'data' => $customer,
@@ -146,6 +150,9 @@ class CustomerController extends Controller
 
             $customer->update($request->all());
 
+            // Log the update
+            AuditHelper::logUpdate('customers', $customer->id);
+
             Log::info('Customer updated successfully', [
                 'customer_id' => $customer->id
             ]);
@@ -184,6 +191,9 @@ class CustomerController extends Controller
             ]);
 
             $customer->update(['status' => 'Inactive']);
+
+            // Log the deletion
+            AuditHelper::logDelete('customers', $customer->id);
 
             Log::info('Customer deleted successfully', [
                 'customer_id' => $customer->id

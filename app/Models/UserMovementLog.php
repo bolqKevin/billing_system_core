@@ -9,14 +9,15 @@ class UserMovementLog extends Model
 {
     use HasFactory;
 
-    public $timestamps = false;
-
     protected $table = 'user_movements_log';
 
     protected $fillable = [
         'user_id',
         'action_performed',
         'affected_record_id',
+        'module',
+        'created_at',
+        'updated_at',
     ];
 
     protected $casts = [

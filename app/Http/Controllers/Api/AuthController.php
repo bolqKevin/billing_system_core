@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\UserLoginLog;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -19,7 +19,7 @@ class AuthController extends Controller
     {
         // Log the incoming request data
         Log::info('Login attempt', [
-            'email' => $request->email,
+            'username' => $request->username,
             'has_password' => $request->has('password'),
             'password_length' => $request->password ? strlen($request->password) : 0,
             'headers' => $request->headers->all(),
@@ -32,7 +32,7 @@ class AuthController extends Controller
 
         try {
             $request->validate([
-                'email' => 'required|email',
+                'username' => 'required|string',
                 'password' => 'required|string',
             ]);
         } catch (ValidationException $e) {
@@ -40,30 +40,62 @@ class AuthController extends Controller
                 'errors' => $e->errors(),
                 'request_data' => $request->all(),
                 'validation_rules' => [
-                    'email' => 'required|email',
+                    'username' => 'required|string',
                     'password' => 'required|string',
                 ]
             ]);
             throw $e;
         }
 
-        $user = User::with('role')->where('email', $request->email)->first();
+        $user = User::with(['role.permissions'])->where('username', $request->username)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
+            // Log failed login attempt
+            UserLoginLog::create([
+                'user_id' => $user ? $user->id : null,
+                'username' => $request->username,
+                'event_type' => 'Failed_Login',
+            ]);
+
             Log::warning('Login failed - invalid credentials', [
-                'email' => $request->email,
+                'username' => $request->username,
                 'user_exists' => $user ? true : false
             ]);
             throw ValidationException::withMessages([
-                'email' => ['Las credenciales proporcionadas son incorrectas.'],
+                'username' => ['Las credenciales proporcionadas son incorrectas.'],
+            ]);
+        }
+
+        if ($user->status !== 'Active') {
+            // Log failed login attempt for inactive user
+            UserLoginLog::create([
+                'user_id' => $user->id,
+                'username' => $request->username,
+                'event_type' => 'Failed_Login',
+            ]);
+
+            Log::warning('Login failed - inactive user', [
+                'username' => $request->username,
+                'status' => $user->status
+            ]);
+            throw ValidationException::withMessages([
+                'username' => ['Su cuenta está inactiva. Contacte al administrador.'],
             ]);
         }
 
         $token = $user->createToken('auth-token')->plainTextToken;
 
+        // Log successful login
+        UserLoginLog::create([
+            'user_id' => $user->id,
+            'username' => $user->username,
+            'event_type' => 'Successful_Login',
+        ]);
+
         Log::info('Login successful', [
             'user_id' => $user->id,
-            'email' => $user->email
+            'username' => $user->username,
+            'role' => $user->role ? $user->role->name : 'No role'
         ]);
 
         return response()->json([
@@ -72,7 +104,22 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'username' => $user->username,
                 'email' => $user->email,
-                'role' => $user->role ? $user->role->name : null,
+                'status' => $user->status,
+                'company_id' => $user->company_id,
+                'role' => $user->role ? [
+                    'id' => $user->role->id,
+                    'name' => $user->role->name,
+                    'description' => $user->role->description,
+                    'status' => $user->role->status,
+                    'permissions' => $user->role->permissions->map(function ($permission) {
+                        return [
+                            'id' => $permission->id,
+                            'name' => $permission->name,
+                            'description' => $permission->description,
+                            'module' => $permission->module,
+                        ];
+                    })
+                ] : null,
             ],
             'token' => $token,
         ]);
@@ -83,7 +130,16 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+        
+        // Log logout event
+        UserLoginLog::create([
+            'user_id' => $user->id,
+            'username' => $user->username,
+            'event_type' => 'Logout',
+        ]);
+
+        $user->currentAccessToken()->delete();
 
         return response()->json([
             'message' => 'Sesión cerrada exitosamente',
@@ -95,14 +151,29 @@ class AuthController extends Controller
      */
     public function user(Request $request)
     {
-        $user = $request->user()->load('role');
+        $user = $request->user()->load(['role.permissions']);
         
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,
             'username' => $user->username,
             'email' => $user->email,
-            'role' => $user->role ? $user->role->name : null,
+            'status' => $user->status,
+            'company_id' => $user->company_id,
+            'role' => $user->role ? [
+                'id' => $user->role->id,
+                'name' => $user->role->name,
+                'description' => $user->role->description,
+                'status' => $user->role->status,
+                'permissions' => $user->role->permissions->map(function ($permission) {
+                    return [
+                        'id' => $permission->id,
+                        'name' => $permission->name,
+                        'description' => $permission->description,
+                        'module' => $permission->module,
+                    ];
+                })
+            ] : null,
         ]);
     }
 } 

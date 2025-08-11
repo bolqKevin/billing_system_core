@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use App\Helpers\AuditHelper;
 use TCPDF;
 
 class InvoiceController extends Controller
@@ -168,6 +169,9 @@ class InvoiceController extends Controller
 
             DB::commit();
 
+            // Log the creation
+            AuditHelper::logCreate('invoices', $invoice->id);
+
             return response()->json([
                 'message' => 'Factura creada exitosamente',
                 'data' => $invoice->load(['customer', 'details.productService']),
@@ -279,6 +283,9 @@ class InvoiceController extends Controller
 
             DB::commit();
 
+            // Log the update
+            AuditHelper::logUpdate('invoices', $invoice->id);
+
             return response()->json([
                 'message' => 'Factura actualizada exitosamente',
                 'data' => $invoice->load(['customer', 'details.productService']),
@@ -326,6 +333,9 @@ class InvoiceController extends Controller
 
         try {
             $invoice->delete();
+            
+            // Log the deletion
+            AuditHelper::logDelete('invoices', $invoice->id);
             
             Log::info('Factura eliminada exitosamente', [
                 'invoice_id' => $invoice->id,
@@ -394,6 +404,9 @@ class InvoiceController extends Controller
             'status' => 'Issued',
             'issue_date' => $invoice->issue_date ?? now(),
         ]);
+
+        // Log the issue
+        AuditHelper::logUpdate('invoices', $invoice->id, 'Factura emitida');
 
         return response()->json([
             'message' => 'Factura emitida exitosamente',
@@ -476,6 +489,9 @@ class InvoiceController extends Controller
             'status' => 'Cancelled',
             'cancellation_reason' => $request->cancellation_reason,
         ]);
+
+        // Log the cancellation
+        AuditHelper::logUpdate('invoices', $invoice->id, 'Factura cancelada');
 
         Log::info('Factura cancelada exitosamente', [
             'invoice_id' => $invoice->id,
@@ -588,30 +604,30 @@ class InvoiceController extends Controller
             $pdf->Cell(10, 6, $index + 1, 1, 0, 'C');
             $pdf->Cell(70, 6, $detail->productService ? $detail->productService->name_description : 'Producto no especificado', 1, 0, 'L');
             $pdf->Cell(20, 6, number_format($detail->quantity, 2), 1, 0, 'C');
-            $pdf->Cell(25, 6, '₡' . number_format($detail->unit_price, 2), 1, 0, 'R');
-            $pdf->Cell(20, 6, $detail->item_discount > 0 ? '₡' . number_format($detail->item_discount, 2) : '-', 1, 0, 'R');
-            $pdf->Cell(25, 6, '₡' . number_format($detail->item_subtotal, 2), 1, 0, 'R');
-            $pdf->Cell(25, 6, '₡' . number_format($detail->item_total, 2), 1, 1, 'R');
+            $pdf->Cell(25, 6, '₡ ' . number_format($detail->unit_price, 2), 1, 0, 'R');
+            $pdf->Cell(20, 6, $detail->item_discount > 0 ? '₡ ' . number_format($detail->item_discount, 2) : '-', 1, 0, 'R');
+            $pdf->Cell(25, 6, '₡ ' . number_format($detail->item_subtotal, 2), 1, 0, 'R');
+            $pdf->Cell(25, 6, '₡ ' . number_format($detail->item_total, 2), 1, 1, 'R');
         }
         
         $pdf->Ln(5);
         
         // Totals
         $pdf->SetFont('dejavusans', 'B', 10);
-        $pdf->Cell(125, 6, 'Subtotal:', 0, 0, 'R');
-        $pdf->Cell(25, 6, '₡' . number_format($invoice->subtotal, 2), 0, 1, 'R');
+        $pdf->Cell(120, 6, 'Subtotal:', 0, 0, 'R');
+        $pdf->Cell(30, 6, '₡ ' . number_format($invoice->subtotal, 2), 0, 1, 'R');
         
         if ($invoice->total_discount > 0) {
-            $pdf->Cell(125, 6, 'Descuentos:', 0, 0, 'R');
-            $pdf->Cell(25, 6, '₡' . number_format($invoice->total_discount, 2), 0, 1, 'R');
+            $pdf->Cell(120, 6, 'Descuentos:', 0, 0, 'R');
+            $pdf->Cell(30, 6, '₡ ' . number_format($invoice->total_discount, 2), 0, 1, 'R');
         }
         
-        $pdf->Cell(125, 6, 'Impuesto (13%):', 0, 0, 'R');
-        $pdf->Cell(25, 6, '₡' . number_format($invoice->total_tax, 2), 0, 1, 'R');
+        $pdf->Cell(120, 6, 'Impuesto (13%):', 0, 0, 'R');
+        $pdf->Cell(30, 6, '₡ ' . number_format($invoice->total_tax, 2), 0, 1, 'R');
         
         $pdf->SetFont('dejavusans', 'B', 12);
-        $pdf->Cell(125, 8, 'TOTAL:', 0, 0, 'R');
-        $pdf->Cell(25, 8, '₡' . number_format($invoice->grand_total, 2), 0, 1, 'R');
+        $pdf->Cell(110, 8, 'TOTAL:', 0, 0, 'R');
+        $pdf->Cell(40, 8, '₡ ' . number_format($invoice->grand_total, 2), 0, 1, 'R');
         
         $pdf->Ln(10);
         
@@ -793,30 +809,30 @@ class InvoiceController extends Controller
                 $pdf->Cell(10, 6, $index + 1, 1, 0, 'C');
                 $pdf->Cell(70, 6, $detail->productService ? $detail->productService->name_description : 'Producto no especificado', 1, 0, 'L');
                 $pdf->Cell(20, 6, number_format($detail->quantity, 2), 1, 0, 'C');
-                $pdf->Cell(25, 6, '₡' . number_format($detail->unit_price, 2), 1, 0, 'R');
-                $pdf->Cell(20, 6, $detail->item_discount > 0 ? '₡' . number_format($detail->item_discount, 2) : '-', 1, 0, 'R');
-                $pdf->Cell(25, 6, '₡' . number_format($detail->item_subtotal, 2), 1, 0, 'R');
-                $pdf->Cell(25, 6, '₡' . number_format($detail->item_total, 2), 1, 1, 'R');
+                $pdf->Cell(25, 6, '₡ ' . number_format($detail->unit_price, 2), 1, 0, 'R');
+                $pdf->Cell(20, 6, $detail->item_discount > 0 ? '₡ ' . number_format($detail->item_discount, 2) : '-', 1, 0, 'R');
+                $pdf->Cell(25, 6, '₡ ' . number_format($detail->item_subtotal, 2), 1, 0, 'R');
+                $pdf->Cell(25, 6, '₡ ' . number_format($detail->item_total, 2), 1, 1, 'R');
             }
             
             $pdf->Ln(5);
             
             // Totals
             $pdf->SetFont('dejavusans', 'B', 10);
-            $pdf->Cell(125, 6, 'Subtotal:', 0, 0, 'R');
-            $pdf->Cell(25, 6, '₡' . number_format($invoice->subtotal, 2), 0, 1, 'R');
+            $pdf->Cell(120, 6, 'Subtotal:', 0, 0, 'R');
+            $pdf->Cell(30, 6, '₡ ' . number_format($invoice->subtotal, 2), 0, 1, 'R');
             
             if ($invoice->total_discount > 0) {
-                $pdf->Cell(125, 6, 'Descuentos:', 0, 0, 'R');
-                $pdf->Cell(25, 6, '₡' . number_format($invoice->total_discount, 2), 0, 1, 'R');
+                $pdf->Cell(120, 6, 'Descuentos:', 0, 0, 'R');
+                $pdf->Cell(30, 6, '₡ ' . number_format($invoice->total_discount, 2), 0, 1, 'R');
             }
             
-            $pdf->Cell(125, 6, 'Impuesto (13%):', 0, 0, 'R');
-            $pdf->Cell(25, 6, '₡' . number_format($invoice->total_tax, 2), 0, 1, 'R');
+            $pdf->Cell(120, 6, 'Impuesto (13%):', 0, 0, 'R');
+            $pdf->Cell(30, 6, '₡ ' . number_format($invoice->total_tax, 2), 0, 1, 'R');
             
             $pdf->SetFont('dejavusans', 'B', 12);
-            $pdf->Cell(125, 8, 'TOTAL:', 0, 0, 'R');
-            $pdf->Cell(25, 8, '₡' . number_format($invoice->grand_total, 2), 0, 1, 'R');
+            $pdf->Cell(110, 8, 'TOTAL:', 0, 0, 'R');
+            $pdf->Cell(40, 8, '₡ ' . number_format($invoice->grand_total, 2), 0, 1, 'R');
             
             $pdf->Ln(10);
             
@@ -877,7 +893,7 @@ class InvoiceController extends Controller
 
             // Prepare email data
             $subject = $request->subject ?? 'Factura ' . $invoice->invoice_number . ' - ' . $companyName;
-            $message = $request->message ?? 'Adjunto encontrará la factura ' . $invoice->invoice_number . ' por un monto de ₡' . number_format($invoice->grand_total, 2) . '.\n\nGracias por su preferencia.\n\nSaludos cordiales,\n' . $companyName;
+            $message = $request->message ?? 'Adjunto encontrará la factura ' . $invoice->invoice_number . ' por un monto de ₡ ' . number_format($invoice->grand_total, 2) . '.\n\nGracias por su preferencia.\n\nSaludos cordiales,\n' . $companyName;
 
             // Send email with all attachments
             try {
@@ -1150,8 +1166,8 @@ class InvoiceController extends Controller
                         <tr>
                             <td>{$detail->productService->name}</td>
                             <td>{$detail->quantity}</td>
-                            <td>₡" . number_format($detail->unit_price, 2) . "</td>
-                            <td>₡" . number_format($detail->total, 2) . "</td>
+                            <td>₡ " . number_format($detail->unit_price, 2) . "</td>
+                            <td>₡ " . number_format($detail->total, 2) . "</td>
                         </tr>";
         }
                     
@@ -1160,15 +1176,15 @@ class InvoiceController extends Controller
                 </table>
                 
                 <div class='total'>
-                    <p><strong>Subtotal:</strong> ₡" . number_format($invoice->subtotal, 2) . "</p>";
+                    <p><strong>Subtotal:</strong> ₡ " . number_format($invoice->subtotal, 2) . "</p>";
                     
         if ($invoice->total_discount > 0) {
-            $html .= "<p><strong>Descuentos:</strong> ₡" . number_format($invoice->total_discount, 2) . "</p>";
+            $html .= "<p><strong>Descuentos:</strong> ₡ " . number_format($invoice->total_discount, 2) . "</p>";
         }
                     
         $html .= "
-                    <p><strong>Impuesto (13%):</strong> ₡" . number_format($invoice->total_tax, 2) . "</p>
-                    <p><strong>TOTAL:</strong> ₡" . number_format($invoice->grand_total, 2) . "</p>
+                    <p><strong>Impuesto (13%):</strong> ₡ " . number_format($invoice->total_tax, 2) . "</p>
+                    <p><strong>TOTAL:</strong> ₡ " . number_format($invoice->grand_total, 2) . "</p>
                 </div>
                 
                 <div class='footer'>

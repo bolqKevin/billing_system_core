@@ -7,6 +7,7 @@ use App\Models\ProductService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use App\Helpers\AuditHelper;
 
 class ProductServiceController extends Controller
 {
@@ -67,6 +68,9 @@ class ProductServiceController extends Controller
         $data = $request->all();
         $data['company_id'] = Auth::user()->company_id;
         $product = ProductService::create($data);
+
+        // Log the creation
+        AuditHelper::logCreate('products', $product->id);
 
         return response()->json([
             'message' => 'Producto/Servicio creado exitosamente',
@@ -130,6 +134,9 @@ class ProductServiceController extends Controller
 
             $productService->update($request->all());
 
+            // Log the update
+            AuditHelper::logUpdate('products', $productService->id);
+
             Log::info('Product/Service updated successfully', [
                 'product_id' => $productService->id
             ]);
@@ -168,6 +175,9 @@ class ProductServiceController extends Controller
             ]);
 
             $productService->update(['status' => 'Inactive']);
+
+            // Log the deletion
+            AuditHelper::logDelete('products', $productService->id);
 
             Log::info('Product/Service deleted successfully', [
                 'product_id' => $productService->id

@@ -5,55 +5,111 @@ namespace App\Helpers;
 use App\Models\UserMovementLog;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class AuditHelper
 {
     /**
-     * Log user action
+     * Registrar un movimiento de usuario
      */
-    public static function logAction($action, $recordId = null, $details = null)
+    public static function logMovement($action, $module, $affectedRecordId = null, $details = null)
     {
         try {
+            $user = Auth::user();
+            
+            if (!$user) {
+                return false;
+            }
+
             UserMovementLog::create([
-                'user_id' => Auth::id(),
+                'user_id' => $user->id,
                 'action_performed' => $action,
-                'affected_record_id' => $recordId,
+                'affected_record_id' => $affectedRecordId,
+                'module' => $module,
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
             ]);
+
+            return true;
         } catch (\Exception $e) {
-            // Log error but don't break the main flow
-            Log::error('Error logging user action: ' . $e->getMessage());
+            Log::error('Error logging movement: ' . $e->getMessage());
+            return false;
         }
     }
 
     /**
-     * Log creation
+     * Registrar creación de registro
      */
-    public static function logCreate($recordId = null)
+    public static function logCreate($module, $recordId = null, $details = null)
     {
-        self::logAction('Create', $recordId);
+        return self::logMovement('Create', $module, $recordId, $details);
     }
 
     /**
-     * Log update
+     * Registrar actualización de registro
      */
-    public static function logUpdate($recordId = null)
+    public static function logUpdate($module, $recordId = null, $details = null)
     {
-        self::logAction('Update', $recordId);
+        return self::logMovement('Update', $module, $recordId, $details);
     }
 
     /**
-     * Log delete
+     * Registrar eliminación de registro
      */
-    public static function logDelete($recordId = null)
+    public static function logDelete($module, $recordId = null, $details = null)
     {
-        self::logAction('Delete', $recordId);
+        return self::logMovement('Delete', $module, $recordId, $details);
     }
 
     /**
-     * Log view
+     * Registrar visualización de registro
      */
-    public static function logView($recordId = null)
+    public static function logView($module, $recordId = null, $details = null)
     {
-        self::logAction('View', $recordId);
+        return self::logMovement('View', $module, $recordId, $details);
+    }
+
+    /**
+     * Obtener el ID del módulo basado en la ruta
+     */
+    public static function getModuleFromRoute($route)
+    {
+        $moduleMap = [
+            'customers' => ['customers', 'clientes'],
+            'products' => ['products', 'productos', 'services', 'servicios'],
+            'invoices' => ['invoices', 'facturas', 'bills'],
+            'users' => ['users', 'usuarios'],
+            'settings' => ['settings', 'configuracion', 'configuration'],
+            'roles' => ['roles', 'roles'],
+            'permissions' => ['permissions', 'permisos'],
+        ];
+
+        $route = strtolower($route);
+
+        foreach ($moduleMap as $module => $keywords) {
+            foreach ($keywords as $keyword) {
+                if (strpos($route, $keyword) !== false) {
+                    return $module;
+                }
+            }
+        }
+
+        return 'general';
+    }
+
+    /**
+     * Obtener la acción basada en el método HTTP
+     */
+    public static function getActionFromMethod($method)
+    {
+        $actionMap = [
+            'GET' => 'View',
+            'POST' => 'Create',
+            'PUT' => 'Update',
+            'PATCH' => 'Update',
+            'DELETE' => 'Delete',
+        ];
+
+        return $actionMap[$method] ?? 'View';
     }
 } 
