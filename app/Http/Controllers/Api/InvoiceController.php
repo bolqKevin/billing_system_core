@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
 use App\Helpers\AuditHelper;
 use TCPDF;
 
@@ -1207,7 +1206,7 @@ class InvoiceController extends Controller
 <FacturaElectronica xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/facturaElectronica"
                     xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
                     xmlns:xs="http://www.w3.org/2001/XMLSchema">
-    <Clave>' . $this->generateClave($invoice, $company) . '</Clave>
+    <Clave>' . $this->generateKey($invoice, $company) . '</Clave>
     <CodigoActividad>' . ($company->activity_code ?? '620100000000') . '</CodigoActividad>
     <NumeroConsecutivo>' . $invoice->invoice_number . '</NumeroConsecutivo>
     <FechaEmision>' . \Carbon\Carbon::parse($invoice->issue_date)->format('Y-m-d\TH:i:s-06:00') . '</FechaEmision>
@@ -1351,7 +1350,7 @@ class InvoiceController extends Controller
     {
         $xmlContent = '<?xml version="1.0" encoding="UTF-8"?>
 <MensajeReceptor xmlns="https://cdn.comprobanteselectronicos.go.cr/xml-schemas/v4.3/mensajeReceptor">
-    <Clave>' . $this->generateClave($invoice, $company) . '</Clave>
+    <Clave>' . $this->generateKey($invoice, $company) . '</Clave>
     <NumeroCedulaEmisor>' . ($company->legal_id ?? '3-101-123456') . '</NumeroCedulaEmisor>
     <FechaEmisionDoc>' . \Carbon\Carbon::parse($invoice->issue_date)->format('Y-m-d\TH:i:s-06:00') . '</FechaEmisionDoc>
     <Mensaje>Aceptado</Mensaje>
@@ -1373,23 +1372,23 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Generate clave for Costa Rica electronic invoice
+     * Generate key for Costa Rica electronic invoice
      */
-    private function generateClave($invoice, $company)
+    private function generateKey($invoice, $company)
     {
-        // Format: CR + Tipo Documento + Cédula + Situación + Año + Mes + Día + Número Consecutivo + Tipo Situación + Clave Seguridad
-        $pais = '506';
-        $tipoDocumento = '01'; // Factura
-        $cedula = str_replace(['-', ' '], '', $company->legal_id ?? '3101123456');
-        $situacion = '1'; // Normal
-        $fecha = \Carbon\Carbon::parse($invoice->issue_date);
-        $ano = $fecha->format('y');
-        $mes = $fecha->format('m');
-        $dia = $fecha->format('d');
-        $consecutivo = str_pad($invoice->id, 10, '0', STR_PAD_LEFT);
-        $tipoSituacion = '1'; // Normal
-        $claveSeguridad = '12345678'; // 8 dígitos aleatorios
+        // Format: CR + Document Type + ID + Status + Year + Month + Day + Consecutive Number + Status Type + Security Key
+        $country = '506';
+        $documentType = '01'; // Bill
+        $taxId = str_replace(['-', ' '], '', $company->legal_id ?? '3101123456');
+        $status = '1'; // Normal
+        $date = \Carbon\Carbon::parse($invoice->issue_date);
+        $year = $date->format('y');
+        $month = $date->format('m');
+        $day = $date->format('d');
+        $consecutive = str_pad($invoice->id, 10, '0', STR_PAD_LEFT);
+        $statusType = '1'; // Normal
+        $securityKey = '12345678';
 
-        return $pais . $tipoDocumento . $cedula . $situacion . $ano . $mes . $dia . $consecutivo . $tipoSituacion . $claveSeguridad;
+        return $country . $documentType . $taxId . $status . $year . $month . $day . $consecutive . $statusType . $securityKey;
     }
 } 

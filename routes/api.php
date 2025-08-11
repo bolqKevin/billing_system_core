@@ -113,6 +113,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/customers', [CustomerController::class, 'store'])->middleware('permission:create_customer');
     Route::put('/customers/{customer}', [CustomerController::class, 'update'])->middleware('permission:update_customer');
     Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])->middleware('permission:delete_customer');
+    Route::delete('/customers/{customer}/permanent', [CustomerController::class, 'permanentDelete'])->middleware('permission:delete_customer');
 
     // Products/Services - Solo lectura para facturadores
     Route::get('/products-services', [ProductServiceController::class, 'index'])->middleware('permission:view_product');
@@ -120,6 +121,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/products-services', [ProductServiceController::class, 'store'])->middleware('permission:create_product');
     Route::put('/products-services/{productService}', [ProductServiceController::class, 'update'])->middleware('permission:update_product');
     Route::delete('/products-services/{productService}', [ProductServiceController::class, 'destroy'])->middleware('permission:delete_product');
+    Route::delete('/products-services/{productService}/permanent', [ProductServiceController::class, 'permanentDelete'])->middleware('permission:delete_product');
 
     // Users - Solo administradores
     Route::get('/users/roles', [UserController::class, 'getRoles'])->middleware('permission:manage_users');
