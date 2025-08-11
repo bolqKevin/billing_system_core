@@ -39,6 +39,9 @@ class CustomerController extends Controller
         // Filter by status
         if ($request->has('status')) {
             $query->where('status', $request->status);
+        } else {
+            // By default, only show active customers unless specifically requested
+            $query->where('status', 'Active');
         }
 
         // Filter by identification type
@@ -179,23 +182,23 @@ class CustomerController extends Controller
     }
 
     /**
-     * Remove the specified customer
+     * Disable the specified customer (soft delete)
      */
     public function destroy($id)
     {
         try {
             $customer = Customer::findOrFail($id);
             
-            Log::info('Deleting customer', [
+            Log::info('Disabling customer', [
                 'customer_id' => $customer->id
             ]);
 
             $customer->update(['status' => 'Inactive']);
 
-            // Log the deletion
-            AuditHelper::logDelete('customers', $customer->id);
+            // Log the disable action
+            AuditHelper::logMovement('Disable', 'customers', $customer->id);
 
-            Log::info('Customer deleted successfully', [
+            Log::info('Customer disabled successfully', [
                 'customer_id' => $customer->id
             ]);
 
@@ -212,13 +215,67 @@ class CustomerController extends Controller
                 'message' => 'Cliente no encontrado',
             ], 404);
         } catch (\Exception $e) {
-            Log::error('Error deleting customer', [
+            Log::error('Error disabling customer', [
                 'customer_id' => $id,
                 'error' => $e->getMessage()
             ]);
 
             return response()->json([
                 'message' => 'Error al deshabilitar el cliente',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Permanently delete the specified customer from database
+     */
+    public function permanentDelete($id)
+    {
+        try {
+            $customer = Customer::findOrFail($id);
+            
+            Log::info('Permanently deleting customer', [
+                'customer_id' => $customer->id
+            ]);
+
+            // Check if customer has associated invoices
+            if ($customer->invoices()->count() > 0) {
+                return response()->json([
+                    'message' => 'No se puede eliminar el cliente porque tiene facturas asociadas',
+                ], 400);
+            }
+
+            $customerId = $customer->id;
+            $customer->delete();
+
+            // Log the permanent deletion
+            AuditHelper::logMovement('Permanent Delete', 'customers', $customerId);
+
+            Log::info('Customer permanently deleted successfully', [
+                'customer_id' => $customerId
+            ]);
+
+            return response()->json([
+                'message' => 'Cliente eliminado permanentemente',
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            Log::error('Customer not found', [
+                'customer_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'message' => 'Cliente no encontrado',
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error permanently deleting customer', [
+                'customer_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'message' => 'Error al eliminar permanentemente el cliente',
                 'error' => $e->getMessage(),
             ], 500);
         }

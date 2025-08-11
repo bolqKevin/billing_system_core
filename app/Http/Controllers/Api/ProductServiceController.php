@@ -38,6 +38,9 @@ class ProductServiceController extends Controller
         // Filter by status
         if ($request->has('status')) {
             $query->where('status', $request->status);
+        } else {
+            // By default, only show active products/services unless specifically requested
+            $query->where('status', 'Active');
         }
 
         // Filter by type
@@ -163,23 +166,23 @@ class ProductServiceController extends Controller
     }
 
     /**
-     * Remove the specified product/service
+     * Disable the specified product/service (soft delete)
      */
     public function destroy($id)
     {
         try {
             $productService = ProductService::findOrFail($id);
             
-            Log::info('Deleting product/service', [
+            Log::info('Disabling product/service', [
                 'product_id' => $productService->id
             ]);
 
             $productService->update(['status' => 'Inactive']);
 
-            // Log the deletion
-            AuditHelper::logDelete('products', $productService->id);
+            // Log the disable action
+            AuditHelper::logMovement('Disable', 'products', $productService->id);
 
-            Log::info('Product/Service deleted successfully', [
+            Log::info('Product/Service disabled successfully', [
                 'product_id' => $productService->id
             ]);
 
@@ -196,13 +199,67 @@ class ProductServiceController extends Controller
                 'message' => 'Producto/Servicio no encontrado',
             ], 404);
         } catch (\Exception $e) {
-            Log::error('Error deleting product/service', [
+            Log::error('Error disabling product/service', [
                 'product_id' => $id,
                 'error' => $e->getMessage()
             ]);
 
             return response()->json([
                 'message' => 'Error al deshabilitar el producto/servicio',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Permanently delete the specified product/service from database
+     */
+    public function permanentDelete($id)
+    {
+        try {
+            $productService = ProductService::findOrFail($id);
+            
+            Log::info('Permanently deleting product/service', [
+                'product_id' => $productService->id
+            ]);
+
+            // Check if product/service has associated invoice details
+            if ($productService->invoiceDetails()->count() > 0) {
+                return response()->json([
+                    'message' => 'No se puede eliminar el producto/servicio porque tiene facturas asociadas',
+                ], 400);
+            }
+
+            $productId = $productService->id;
+            $productService->delete();
+
+            // Log the permanent deletion
+            AuditHelper::logMovement('Permanent Delete', 'products', $productId);
+
+            Log::info('Product/Service permanently deleted successfully', [
+                'product_id' => $productId
+            ]);
+
+            return response()->json([
+                'message' => 'Producto/Servicio eliminado permanentemente',
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            Log::error('Product/Service not found', [
+                'product_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'message' => 'Producto/Servicio no encontrado',
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Error permanently deleting product/service', [
+                'product_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'message' => 'Error al eliminar permanentemente el producto/servicio',
                 'error' => $e->getMessage(),
             ], 500);
         }
