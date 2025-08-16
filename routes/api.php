@@ -26,6 +26,12 @@ use Illuminate\Support\Facades\Route;
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
 
+// Password reset routes
+Route::post('/password/send-otp', [AuthController::class, 'sendPasswordResetOtp']);
+Route::post('/password/verify-otp-only', [AuthController::class, 'verifyOtpOnly']);
+Route::post('/password/verify-otp', [AuthController::class, 'verifyOtpAndResetPassword']);
+Route::post('/password/increment-attempts', [AuthController::class, 'incrementOtpAttempts']);
+
 // Test route without auth
 Route::post('/test-invoices/{invoice}/issue', [InvoiceController::class, 'issue']);
 Route::get('/test-invoices/{invoice}/pdf', [InvoiceController::class, 'generatePDF']);
@@ -132,6 +138,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/users/{user}', [UserController::class, 'update'])->middleware('permission:manage_users');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->middleware('permission:manage_users');
     Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->middleware('permission:manage_users');
+    Route::post('/users/check-email', [UserController::class, 'checkEmailExists'])->middleware('permission:manage_users');
+    Route::post('/users/check-username', [UserController::class, 'checkUsernameExists'])->middleware('permission:manage_users');
 
     // Invoices - Permisos específicos para facturadores
     Route::get('/invoices', [InvoiceController::class, 'index'])->middleware('permission:view_invoice');
@@ -159,6 +167,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/system/settings', [SystemController::class, 'getSettings'])->middleware('permission:configure_system');
     Route::put('/system/settings', [SystemController::class, 'updateSettings'])->middleware('permission:configure_system');
     Route::get('/system/company-info', [SystemController::class, 'getCompanyInfo'])->middleware('permission:configure_system');
+    Route::put('/system/company-info', [SystemController::class, 'updateCompanyInfo'])->middleware('permission:configure_system');
 
     // Audit - Solo administradores
     Route::get('/audit/movements', [AuditController::class, 'getMovementLogs'])->middleware('permission:view_logs');
@@ -172,8 +181,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/audit/test-logins', [AuditController::class, 'getLoginLogs']);
 });
 
-// Rutas públicas temporales para debug
-Route::get('/audit/public-logins', [AuditController::class, 'getLoginLogs']);
-Route::get('/audit/public-movements', [AuditController::class, 'getMovementLogs']);
+// Rutas públicas temporales para debug (con filtro por compañía)
+Route::get('/audit/public-logins', [AuditController::class, 'getPublicLoginLogs']);
+Route::get('/audit/public-movements', [AuditController::class, 'getPublicMovementLogs']);
+
+// Rutas públicas temporales para reportes (con filtro por compañía)
+Route::get('/reports/public-sales', [ReportController::class, 'getPublicSales']);
+Route::get('/reports/public-customers', [ReportController::class, 'getPublicCustomers']);
+Route::get('/reports/public-products', [ReportController::class, 'getPublicProducts']);
+Route::get('/reports/public-monthly-sales', [ReportController::class, 'getPublicMonthlySales']);
 
  

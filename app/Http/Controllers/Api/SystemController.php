@@ -97,4 +97,59 @@ class SystemController extends Controller
             'data' => $company,
         ]);
     }
+
+    /**
+     * Update company information
+     */
+    public function updateCompanyInfo(Request $request)
+    {
+        $user = Auth::user();
+        
+        if (!$user) {
+            return response()->json([
+                'message' => 'Usuario no autenticado',
+            ], 401);
+        }
+
+        $company = $user->company;
+        
+        if (!$company) {
+            return response()->json([
+                'message' => 'Compañía no encontrada',
+            ], 404);
+        }
+
+        $request->validate([
+            'company_name' => 'required|string|max:200',
+            'business_name' => 'required|string|max:200',
+            'legal_id' => 'required|string|max:20',
+            'phone' => 'nullable|string|max:20',
+            'email' => 'nullable|email|max:100',
+            'address' => 'required|string',
+            'invoice_prefix' => 'required|string|max:10',
+            'invoice_current_consecutive' => 'required|integer|min:1',
+        ]);
+
+        try {
+            $company->update([
+                'company_name' => $request->company_name,
+                'business_name' => $request->business_name,
+                'legal_id' => $request->legal_id,
+                'phone' => $request->phone,
+                'email' => $request->email,
+                'address' => $request->address,
+                'invoice_prefix' => $request->invoice_prefix,
+                'invoice_current_consecutive' => $request->invoice_current_consecutive,
+            ]);
+
+            return response()->json([
+                'message' => 'Información de la empresa actualizada exitosamente',
+                'data' => $company,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al actualizar la información de la empresa: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 } 

@@ -69,6 +69,14 @@ class UserController extends Controller
             'role_id' => 'required|exists:roles,id',
             'status' => 'required|in:Active,Inactive',
             'company_id' => 'nullable|exists:companies,id',
+        ], [
+            'email.unique' => 'El correo electrónico ya está registrado en el sistema.',
+            'username.unique' => 'El nombre de usuario ya está en uso.',
+            'email.required' => 'El correo electrónico es obligatorio.',
+            'email.email' => 'El formato del correo electrónico no es válido.',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
+            'role_id.required' => 'Debe seleccionar un rol para el usuario.',
+            'role_id.exists' => 'El rol seleccionado no existe.',
         ]);
 
         try {
@@ -133,6 +141,14 @@ class UserController extends Controller
             'role_id' => 'required|exists:roles,id',
             'status' => 'required|in:Active,Inactive',
             'company_id' => 'nullable|exists:companies,id',
+        ], [
+            'email.unique' => 'El correo electrónico ya está registrado en el sistema.',
+            'username.unique' => 'El nombre de usuario ya está en uso.',
+            'email.required' => 'El correo electrónico es obligatorio.',
+            'email.email' => 'El formato del correo electrónico no es válido.',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
+            'role_id.required' => 'Debe seleccionar un rol para el usuario.',
+            'role_id.exists' => 'El rol seleccionado no existe.',
         ]);
 
         try {
@@ -287,5 +303,39 @@ class UserController extends Controller
         ];
 
         return response()->json($stats);
+    }
+
+    /**
+     * Check if email exists
+     */
+    public function checkEmailExists(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $exists = User::where('email', $request->email)->exists();
+
+        return response()->json([
+            'exists' => $exists,
+            'message' => $exists ? 'El correo electrónico ya está registrado.' : 'El correo electrónico está disponible.'
+        ]);
+    }
+
+    /**
+     * Check if username exists
+     */
+    public function checkUsernameExists(Request $request)
+    {
+        $request->validate([
+            'username' => 'required|string',
+        ]);
+
+        $exists = User::where('username', $request->username)->exists();
+
+        return response()->json([
+            'exists' => $exists,
+            'message' => $exists ? 'El nombre de usuario ya está en uso.' : 'El nombre de usuario está disponible.'
+        ]);
     }
 }

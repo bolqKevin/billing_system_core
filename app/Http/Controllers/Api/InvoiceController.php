@@ -99,10 +99,18 @@ class InvoiceController extends Controller
         try {
             DB::beginTransaction();
 
-            // Generate invoice number
-            $lastInvoice = Invoice::orderBy('id', 'desc')->first();
-            $nextNumber = $lastInvoice ? intval(substr($lastInvoice->invoice_number, 4)) + 1 : 1;
-            $invoiceNumber = 'INV-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+            // Get user's company information
+            $user = Auth::user();
+            $company = $user ? $user->company : Company::first();
+            
+            if (!$company) {
+                throw new \Exception('No se encontró información de la compañía');
+            }
+
+            // Generate invoice number using company prefix
+            $lastInvoice = Invoice::where('company_id', $company->id)->orderBy('id', 'desc')->first();
+            $nextNumber = $lastInvoice ? intval(substr($lastInvoice->invoice_number, strlen($company->invoice_prefix))) + 1 : $company->invoice_current_consecutive;
+            $invoiceNumber = $company->invoice_prefix . str_pad($nextNumber, 6, '0', STR_PAD_LEFT);
 
             // Set default values
             $status = $request->status ?? 'Draft';
@@ -120,11 +128,16 @@ class InvoiceController extends Controller
                 'observations' => $request->observations,
                 'status' => ucfirst($status),
                 'creation_user_id' => $request->user()->id,
-                'company_id' => $request->user()->company_id,
+                'company_id' => $company->id,
                 'subtotal' => $request->subtotal ?? 0,
                 'total_tax' => $request->total_tax ?? 0,
                 'total_discount' => $request->total_discount ?? 0,
                 'grand_total' => $request->grand_total ?? 0,
+            ]);
+
+            // Update company consecutive number
+            $company->update([
+                'invoice_current_consecutive' => $nextNumber + 1
             ]);
 
             // Create invoice details
@@ -195,8 +208,17 @@ class InvoiceController extends Controller
     /**
      * Update the specified invoice
      */
-    public function update(Request $request, Invoice $invoice)
+    public function update(Request $request, $id)
     {
+        // Find the invoice manually
+        $invoice = Invoice::find($id);
+        
+        if (!$invoice) {
+            return response()->json([
+                'message' => 'Factura no encontrada',
+            ], 404);
+        }
+
         if ($invoice->status !== 'Draft') {
             return response()->json([
                 'message' => 'Solo se pueden editar facturas en estado borrador',
