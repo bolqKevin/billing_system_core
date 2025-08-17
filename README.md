@@ -1,61 +1,355 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🧾 Billing System - FactuGriego
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Complete billing system developed in Laravel with REST API for customer, product, invoice, and report management.
 
-## About Laravel
+> **📖 [Ver en Español](README_ES.md)** | **🇺🇸 View in English**
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Complete billing system developed in Laravel with REST API for customer, product, invoice, and report management.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 📋 Table of Contents
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- [System Requirements](#system-requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [System Usage](#system-usage)
+- [API Endpoints](#api-endpoints)
+- [Project Structure](#project-structure)
+- [Useful Commands](#useful-commands)
+- [Troubleshooting](#troubleshooting)
 
-## Learning Laravel
+## 🖥️ System Requirements
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### Required Software
+- **PHP**: 8.1 or higher
+- **Composer**: 2.0 or higher
+- **MySQL**: 8.0 or higher
+- **Node.js**: 16.0 or higher (optional, for development)
+- **Git**: To clone the repository
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+### Required PHP Extensions
+```bash
+php -m | grep -E "(bcmath|ctype|fileinfo|json|mbstring|openssl|pdo|tokenizer|xml)"
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 🚀 Installation
 
-## Laravel Sponsors
+### Step 1: Clone Repository
+```bash
+git clone <repository-url>
+cd billing_system_core
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### Step 2: Install PHP Dependencies
+```bash
+composer install
+```
 
-### Premium Partners
+### Step 3: Configure Environment Variables
+```bash
+cp .env.example .env
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+Edit the `.env` file with your configuration:
+```env
+APP_NAME="Billing System"
+APP_ENV=local
+APP_KEY=
+APP_DEBUG=true
+APP_URL=http://localhost:8000
 
-## Contributing
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=billing_system_db
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Step 4: Generate Application Key
+```bash
+php artisan key:generate
+```
 
-## Code of Conduct
+### Step 5: Create Database
+```sql
+CREATE DATABASE billing_system_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Step 6: Run Migrations
+```bash
+php artisan migrate
+```
 
-## Security Vulnerabilities
+### Step 7: Insert Initial Data
+```bash
+php artisan data:insert
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### Step 8: Clean Unused Tables (Optional)
+```bash
+php artisan system:cleanup-tables
+```
 
-## License
+### Step 9: Configure Storage Permissions
+```bash
+chmod -R 775 storage bootstrap/cache
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Step 10: Start Server
+```bash
+php artisan serve
+```
+
+The system will be available at: `http://localhost:8000`
+
+## ⚙️ Configuration
+
+### Email Configuration (SMTP)
+For the system to send invoices by email:
+
+1. **Configure SMTP Settings in Database:**
+   The system uses database settings for email configuration. After installation, configure SMTP settings through the web interface:
+   - Go to **Settings > Email Configuration**
+   - Enter your SMTP server details
+   - For Gmail, use:
+     - Host: smtp.gmail.com
+     - Port: 587
+     - Encryption: TLS
+     - Use App Password (not regular password)
+
+2. **Test Configuration:**
+   ```bash
+   php artisan test-email
+   ```
+
+### Company Configuration
+After installation, configure company information:
+
+1. Access the system with: `admin` / `password`
+2. Go to Configuration → Company Information
+3. Update company data
+
+## 👥 System Usage
+
+### Default Users
+- **Administrator**: `admin` / `password`
+- **Invoice User**: `facturador` / `password`
+
+### System Roles
+- **Administrator**: Full system access
+- **Invoice User**: Only invoicing functions
+
+### Main Features
+- ✅ Customer Management
+- ✅ Product/Service Management
+- ✅ Invoice Creation and Issuance
+- ✅ PDF Generation
+- ✅ Invoice Email Sending
+- ✅ Sales Reports
+- ✅ User Audit
+- ✅ System Configuration
+
+## 🔌 API Endpoints
+
+### Authentication
+```http
+POST /api/login
+Content-Type: application/json
+
+{
+    "username": "admin",
+    "password": "password"
+}
+```
+
+### Customers
+```http
+GET    /api/customers              # List customers
+GET    /api/customers/{id}         # Get customer
+POST   /api/customers              # Create customer
+PUT    /api/customers/{id}         # Update customer
+DELETE /api/customers/{id}         # Delete customer
+```
+
+### Products/Services
+```http
+GET    /api/products-services              # List products
+GET    /api/products-services/{id}         # Get product
+POST   /api/products-services              # Create product
+PUT    /api/products-services/{id}         # Update product
+DELETE /api/products-services/{id}         # Delete product
+```
+
+### Invoices
+```http
+GET    /api/invoices               # List invoices
+GET    /api/invoices/{id}          # Get invoice
+POST   /api/invoices               # Create invoice
+PUT    /api/invoices/{id}          # Update invoice
+DELETE /api/invoices/{id}          # Delete invoice
+POST   /api/invoices/{id}/issue    # Issue invoice
+POST   /api/invoices/{id}/cancel   # Cancel invoice
+GET    /api/invoices/{id}/pdf      # Generate PDF
+POST   /api/invoices/{id}/send-email # Send by email
+```
+
+### Reports
+```http
+GET /api/reports/sales             # Sales report
+GET /api/reports/customers         # Customer report
+GET /api/reports/products          # Product report
+GET /api/reports/monthly-sales     # Monthly sales
+```
+
+### Users (Administrators Only)
+```http
+GET    /api/users                  # List users
+GET    /api/users/{id}             # Get user
+POST   /api/users                  # Create user
+PUT    /api/users/{id}             # Update user
+DELETE /api/users/{id}             # Delete user
+```
+
+### System
+```http
+GET  /api/system/info              # System information
+GET  /api/system/settings          # Settings
+PUT  /api/system/settings          # Update settings
+GET  /api/system/health            # System status
+```
+
+### Audit (Administrators Only)
+```http
+GET /api/audit/movements           # Movement logs
+GET /api/audit/logins              # Login logs
+GET /api/audit/users               # User information
+GET /api/audit/statistics          # Statistics
+```
+
+## 📁 Project Structure
+
+```
+billing_system_core/
+├── app/
+│   ├── Http/Controllers/Api/     # API Controllers
+│   ├── Models/                   # Eloquent Models
+│   ├── Helpers/                  # Custom Helpers
+│   └── Traits/                   # Reusable Traits
+├── database/
+│   ├── migrations/               # Database migrations
+│   └── seeders/                  # Seeders (if any)
+├── routes/
+│   └── api.php                   # API routes
+├── Console/Commands/             # Custom commands
+└── storage/
+    └── logs/                     # System logs
+```
+
+## 🛠️ Useful Commands
+
+### Installation Commands
+```bash
+php artisan data:insert              # Insert initial data
+php artisan system:cleanup-tables    # Clean unused tables
+php artisan migrate:fresh            # Recreate database
+```
+
+### Diagnostic Commands
+```bash
+php artisan test-email               # Test email configuration
+php artisan system:health            # Check system status
+php artisan route:list               # List all routes
+```
+
+### Maintenance Commands
+```bash
+php artisan cache:clear              # Clear cache
+php artisan config:clear             # Clear configuration
+php artisan view:clear               # Clear views
+```
+
+## 🔧 Troubleshooting
+
+### Database Connection Error
+```bash
+# Check configuration
+php artisan tinker
+>>> DB::connection()->getPdo();
+```
+
+### Permission Error
+```bash
+# On Linux/Mac
+chmod -R 775 storage bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache
+```
+
+### Email Error
+```bash
+# Test SMTP configuration
+php artisan test-email
+```
+
+### Migration Error
+```bash
+# Recreate database
+php artisan migrate:fresh --seed
+```
+
+### Authentication Error
+```bash
+# Regenerate application key
+php artisan key:generate
+```
+
+## 📊 System Features
+
+### ✅ Implemented Features
+- Sanctum authentication system
+- Role and permission management
+- Multitenancy (multiple companies)
+- PDF generation with TCPDF
+- Email sending with templates
+- Complete action audit
+- Documented REST API
+- Detailed logging system
+
+### 🔒 Security
+- JWT authentication with Sanctum
+- Data validation on all endpoints
+- Company filtering (multitenancy)
+- Audit logs
+- CSRF protection
+- Input sanitization
+
+### 📈 Scalability
+- Modular architecture
+- Separation of responsibilities
+- Reusable code
+- Optimized database
+- Stateless REST API
+
+## 🤝 Contributing
+
+1. Fork the project
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is under the MIT License. See the `LICENSE` file for more details.
+
+## 📞 Support
+
+For technical support or inquiries:
+- Email: support@construccionesgriegas.com
+- Documentation: [Project Wiki]
+- Issues: [GitHub Issues]
+
+---
+
+**Developed by:** Construcciones Griegas B&B S.A.  
+**Version:** 1.0.0  
+**Last updated:** August 2025

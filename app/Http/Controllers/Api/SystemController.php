@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\SystemInfo;
+
 use App\Models\Setting;
 use App\Models\Company;
 use Illuminate\Http\Request;
@@ -17,7 +17,14 @@ class SystemController extends Controller
     public function info()
     {
         try {
-            $systemInfo = SystemInfo::first();
+            $systemInfo = [
+                'system_name' => 'FactuGriego',
+                'version' => '1.0.0',
+                'release_date' => '2025-08-16',
+                'owner' => 'Construcciones Griegas B&B S.A.',
+                'developer' => 'Sistema de Facturación',
+                'technologies' => 'Laravel, PHP, MySQL, Vue.js',
+            ];
 
             return response()->json([
                 'success' => true,
