@@ -25,11 +25,50 @@ use Illuminate\Support\Facades\Route;
 
 // Endpoint de salud para Railway
 Route::get('/health', function () {
+    try {
+        // Verificar conexión a base de datos
+        $dbStatus = 'unknown';
+        try {
+            \Illuminate\Support\Facades\DB::connection()->getPdo();
+            $dbStatus = 'connected';
+        } catch (\Exception $e) {
+            $dbStatus = 'error: ' . $e->getMessage();
+        }
+
+        // Verificar configuración básica
+        $appKey = config('app.key') ? 'configured' : 'missing';
+        $appEnv = config('app.env', 'unknown');
+        $appDebug = config('app.debug', false);
+
+        return response()->json([
+            'status' => 'healthy',
+            'timestamp' => now()->toISOString(),
+            'version' => '1.0.0',
+            'environment' => $appEnv,
+            'checks' => [
+                'database' => $dbStatus,
+                'app_key' => $appKey,
+                'debug_mode' => $appDebug
+            ],
+            'uptime' => time() - $_SERVER['REQUEST_TIME'] ?? time(),
+            'memory_usage' => memory_get_usage(true),
+            'memory_peak' => memory_get_peak_usage(true)
+        ], 200);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'unhealthy',
+            'timestamp' => now()->toISOString(),
+            'error' => $e->getMessage(),
+            'environment' => config('app.env', 'unknown')
+        ], 500);
+    }
+});
+
+// Endpoint de salud simple para Railway (fallback)
+Route::get('/ping', function () {
     return response()->json([
-        'status' => 'healthy',
-        'timestamp' => now(),
-        'version' => '1.0.0',
-        'environment' => config('app.env')
+        'status' => 'ok',
+        'timestamp' => now()->toISOString()
     ]);
 });
 
