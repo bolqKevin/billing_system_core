@@ -1,4 +1,4 @@
-﻿[phases.setup]
+[phases.setup]
 nixPkgs = ["php82", "php82Packages.composer", "mysql-client"]
 
 [phases.install]
@@ -6,11 +6,10 @@ cmds = ["composer install --no-dev --optimize-autoloader"]
 
 [phases.build]
 cmds = [
-  "chmod +x start.sh",
   "php artisan config:cache",
   "php artisan route:cache",
   "php artisan view:cache"
 ]
 
 [start]
-cmd = "./start.sh"
+cmd = "php artisan serve --host=0.0.0.0 --port=$PORT"
