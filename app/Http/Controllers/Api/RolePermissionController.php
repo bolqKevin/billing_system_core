@@ -20,7 +20,6 @@ class RolePermissionController extends Controller
     {
         $query = Role::with(['permissions']);
 
-        // Search functionality
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -29,11 +28,9 @@ class RolePermissionController extends Controller
             });
         }
 
-        // Filter by status - by default show only active roles
         if ($request->has('status')) {
             $query->where('status', $request->status);
         } else {
-            // Solo filtrar por activos si no se está mostrando inactivos explícitamente
             if (!$request->has('show_inactive') || $request->show_inactive !== 'true') {
                 $query->where('status', 'Active');
             }
@@ -72,14 +69,12 @@ class RolePermissionController extends Controller
                 'status' => $request->status,
             ]);
 
-            // Attach permissions if provided
             if ($request->has('permissions') && is_array($request->permissions)) {
                 $role->permissions()->attach($request->permissions);
             }
 
             $role->load(['permissions']);
 
-            // Log the creation
             AuditHelper::logCreate('roles', $role->id);
 
             Log::info('Role created successfully', [

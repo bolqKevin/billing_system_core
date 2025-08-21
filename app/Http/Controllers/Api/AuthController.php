@@ -20,7 +20,6 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
-        // Log the incoming request data
         Log::info('Login attempt', [
             'username' => $request->username,
             'has_password' => $request->has('password'),
@@ -53,7 +52,6 @@ class AuthController extends Controller
         $user = User::with(['role.permissions'])->where('username', $request->username)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
-            // Log failed login attempt
             UserLoginLog::create([
                 'user_id' => $user ? $user->id : null,
                 'username' => $request->username,
@@ -70,7 +68,6 @@ class AuthController extends Controller
         }
 
         if ($user->status !== 'Active') {
-            // Log failed login attempt for inactive user
             UserLoginLog::create([
                 'user_id' => $user->id,
                 'username' => $request->username,
@@ -88,7 +85,6 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth-token')->plainTextToken;
 
-        // Log successful login
         UserLoginLog::create([
             'user_id' => $user->id,
             'username' => $user->username,

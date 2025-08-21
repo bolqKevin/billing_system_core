@@ -29,12 +29,10 @@ class InvoiceController extends Controller
         
         $query = Invoice::with(['customer', 'creationUser', 'details.productService']);
         
-        // Filter by user's company
         if ($companyId) {
             $query->where('company_id', $companyId);
         }
 
-        // Search functionality
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -45,17 +43,14 @@ class InvoiceController extends Controller
             });
         }
 
-        // Filter by status
         if ($request->has('status')) {
             $query->where('status', $request->status);
         }
 
-        // Filter by customer
         if ($request->has('customer_id')) {
             $query->where('customer_id', $request->customer_id);
         }
 
-        // Filter by date range
         if ($request->has('start_date')) {
             $query->where('issue_date', '>=', $request->start_date);
         }
@@ -66,7 +61,6 @@ class InvoiceController extends Controller
 
         $invoices = $query->orderBy('created_at', 'desc')->paginate(15);
 
-        // Transform data for frontend
         $invoices->getCollection()->transform(function ($invoice) {
             $invoice->customer_name = $invoice->customer->name_business_name ?? '';
             return $invoice;

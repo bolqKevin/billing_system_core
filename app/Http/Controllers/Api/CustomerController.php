@@ -21,12 +21,10 @@ class CustomerController extends Controller
         
         $query = Customer::query();
         
-        // Filtrar por empresa del usuario
         if ($companyId) {
             $query->where('company_id', $companyId);
         }
 
-        // Search functionality
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -36,17 +34,14 @@ class CustomerController extends Controller
             });
         }
 
-        // Filter by status - by default show only active customers
         if ($request->has('status')) {
             $query->where('status', $request->status);
         } else {
-            // Solo filtrar por activos si no se está mostrando inactivos explícitamente
             if (!$request->has('show_inactive') || $request->show_inactive !== 'true') {
                 $query->where('status', 'Active');
             }
         }
 
-        // Filter by identification type
         if ($request->has('identification_type')) {
             $query->where('identification_type', $request->identification_type);
         }
@@ -85,7 +80,6 @@ class CustomerController extends Controller
             $data['company_id'] = Auth::user()->company_id;
             $customer = Customer::create($data);
 
-            // Log the creation
             AuditHelper::logCreate('customers', $customer->id);
 
             return response()->json([
