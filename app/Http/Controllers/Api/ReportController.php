@@ -9,6 +9,7 @@ use App\Models\ProductService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ReportController extends Controller
 {
@@ -224,6 +225,7 @@ class ReportController extends Controller
     public function getPublicSales(Request $request)
     {
         try {
+
             $request->validate([
                 'start_date' => 'required|date',
                 'end_date' => 'required|date|after_or_equal:start_date',

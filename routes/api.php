@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\ProductServiceController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SystemController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\RolePermissionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -149,11 +150,26 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users', [UserController::class, 'index'])->middleware('permission:manage_users');
     Route::post('/users', [UserController::class, 'store'])->middleware('permission:manage_users');
     Route::get('/users/{user}', [UserController::class, 'show'])->middleware('permission:manage_users');
-    Route::put('/users/{user}', [UserController::class, 'update'])->middleware('permission:manage_users');
-    Route::delete('/users/{user}', [UserController::class, 'destroy'])->middleware('permission:manage_users');
-    Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->middleware('permission:manage_users');
+    Route::put('/users/{userId}', [UserController::class, 'update'])->middleware('permission:manage_users');
+    Route::delete('/users/{userId}', [UserController::class, 'destroy'])->middleware('permission:manage_users');
+    Route::delete('/users/{user}/permanent', [UserController::class, 'permanentDelete'])->middleware('permission:manage_users');
+    Route::post('/users/{userId}/reset-password', [UserController::class, 'resetPassword'])->middleware('permission:manage_users');
     Route::post('/users/check-email', [UserController::class, 'checkEmailExists'])->middleware('permission:manage_users');
     Route::post('/users/check-username', [UserController::class, 'checkUsernameExists'])->middleware('permission:manage_users');
+
+    // Ruta de prueba temporal sin middleware de permisos para debug
+Route::put('/users-test/{userId}', [UserController::class, 'update']);
+
+    // Roles and Permissions - Solo administradores
+    Route::get('/roles', [RolePermissionController::class, 'index'])->middleware('permission:manage_roles');
+    Route::post('/roles', [RolePermissionController::class, 'store'])->middleware('permission:manage_roles');
+    Route::get('/roles/{role}', [RolePermissionController::class, 'show'])->middleware('permission:manage_roles');
+    Route::put('/roles/{roleId}', [RolePermissionController::class, 'update'])->middleware('permission:manage_roles');
+    Route::delete('/roles/{roleId}', [RolePermissionController::class, 'destroy'])->middleware('permission:manage_roles');
+    Route::get('/roles/stats', [RolePermissionController::class, 'getStats'])->middleware('permission:manage_roles');
+    Route::post('/roles/check-name', [RolePermissionController::class, 'checkNameExists'])->middleware('permission:manage_roles');
+    Route::get('/permissions', [RolePermissionController::class, 'getPermissions'])->middleware('permission:manage_roles');
+    Route::get('/permissions/by-module', [RolePermissionController::class, 'getPermissionsByModule'])->middleware('permission:manage_roles');
 
     // Invoices - Permisos específicos para facturadores
     Route::get('/invoices', [InvoiceController::class, 'index'])->middleware('permission:view_invoice');
@@ -204,5 +220,33 @@ Route::get('/reports/public-sales', [ReportController::class, 'getPublicSales'])
 Route::get('/reports/public-customers', [ReportController::class, 'getPublicCustomers']);
 Route::get('/reports/public-products', [ReportController::class, 'getPublicProducts']);
 Route::get('/reports/public-monthly-sales', [ReportController::class, 'getPublicMonthlySales']);
+
+// Rutas de prueba públicas para debug
+Route::get('/users-test/table-structure', function () {
+    $columns = \Illuminate\Support\Facades\Schema::getColumnListing('users');
+    $sampleUser = \App\Models\User::first();
+    return response()->json([
+        'table_columns' => $columns,
+        'sample_user' => $sampleUser ? [
+            'id' => $sampleUser->id,
+            'name' => $sampleUser->name,
+            'status' => $sampleUser->status,
+            'all_attributes' => $sampleUser->getAttributes()
+        ] : null
+    ]);
+});
+
+Route::get('/users-test/{userId}/status', function ($userId) {
+    $user = \App\Models\User::find($userId);
+    if (!$user) {
+        return response()->json(['error' => 'Usuario no encontrado'], 404);
+    }
+    return response()->json([
+        'user_id' => $user->id,
+        'name' => $user->name,
+        'status' => $user->status,
+        'fillable' => $user->getFillable()
+    ]);
+});
 
  

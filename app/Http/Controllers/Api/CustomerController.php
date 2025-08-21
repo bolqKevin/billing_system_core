@@ -36,12 +36,14 @@ class CustomerController extends Controller
             });
         }
 
-        // Filter by status
+        // Filter by status - by default show only active customers
         if ($request->has('status')) {
             $query->where('status', $request->status);
         } else {
-            // By default, only show active customers unless specifically requested
-            $query->where('status', 'Active');
+            // Solo filtrar por activos si no se está mostrando inactivos explícitamente
+            if (!$request->has('show_inactive') || $request->show_inactive !== 'true') {
+                $query->where('status', 'Active');
+            }
         }
 
         // Filter by identification type

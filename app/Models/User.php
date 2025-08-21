@@ -45,7 +45,6 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
         ];
     }
 
@@ -63,6 +62,14 @@ class User extends Authenticatable
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * Get the invoices created by this user.
+     */
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class, 'creation_user_id');
     }
 
     /**
@@ -91,5 +98,20 @@ class User extends Authenticatable
         }
 
         return $this->role->permissions()->where('name', $permission)->exists();
+    }
+
+    /**
+     * Get the array representation of the user.
+     */
+    public function toArray()
+    {
+        $array = parent::toArray();
+        
+        // Asegurar que el campo status esté incluido
+        if (!isset($array['status'])) {
+            $array['status'] = $this->status;
+        }
+        
+        return $array;
     }
 }

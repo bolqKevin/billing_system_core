@@ -35,12 +35,14 @@ class ProductServiceController extends Controller
             });
         }
 
-        // Filter by status
+        // Filter by status - by default show only active products/services
         if ($request->has('status')) {
             $query->where('status', $request->status);
         } else {
-            // By default, only show active products/services unless specifically requested
-            $query->where('status', 'Active');
+            // Solo filtrar por activos si no se está mostrando inactivos explícitamente
+            if (!$request->has('show_inactive') || $request->show_inactive !== 'true') {
+                $query->where('status', 'Active');
+            }
         }
 
         // Filter by type

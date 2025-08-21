@@ -9,6 +9,8 @@ class Role extends Model
 {
     use HasFactory;
 
+    protected $table = 'roles';
+
     protected $fillable = [
         'name',
         'description',
@@ -19,6 +21,19 @@ class Role extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    /**
+     * Boot the model and register event listeners.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        // When deleting a role, also delete related role_permissions
+        static::deleting(function ($role) {
+            $role->permissions()->detach();
+        });
+    }
 
     /**
      * Get the users for this role.
@@ -50,5 +65,13 @@ class Role extends Model
     public function scopeInactive($query)
     {
         return $query->where('status', 'Inactive');
+    }
+
+    /**
+     * Get the route key for the model.
+     */
+    public function getRouteKeyName()
+    {
+        return 'id';
     }
 } 
