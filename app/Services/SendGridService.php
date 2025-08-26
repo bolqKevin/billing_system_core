@@ -15,10 +15,13 @@ class SendGridService
 
     public function __construct()
     {
-        // Credenciales quemadas para pruebas
-        $apiKey = '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';
-        $this->fromEmail = 'bolq3kevin@gmail.com';
-        $this->fromName = 'Sistema de Facturación';
+        $apiKey = env('SENDGRID_API_TOKEN');
+        $this->fromEmail = env('MAIL_FROM_ADDRESS', 'bolq3kevin@gmail.com');
+        $this->fromName = env('MAIL_FROM_NAME', 'Sistema de Facturación');
+
+        if (!$apiKey) {
+            throw new \Exception('SENDGRID_API_TOKEN no está configurada en las variables de entorno');
+        }
 
         $this->sendGrid = new SendGrid($apiKey);
     }
