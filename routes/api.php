@@ -54,7 +54,7 @@ Route::get('/test-invoices/{invoice}/pdf', [InvoiceController::class, 'generateP
 // Public system routes
 Route::get('/system/health', [SystemController::class, 'health']);
 
-// Public test email route (solo variables de entorno)
+// Public test email route
 Route::post('/test-email', function (Request $request) {
     $request->validate([
         'email' => 'required|email',
@@ -63,29 +63,24 @@ Route::post('/test-email', function (Request $request) {
     ]);
 
     try {
-        // Verificar que las variables de entorno estén configuradas
-        if (!env('MAIL_HOST') || !env('MAIL_PASSWORD') || !env('MAIL_USERNAME')) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Configuración SMTP no encontrada en variables de entorno. Configure MAIL_HOST, MAIL_PASSWORD y MAIL_USERNAME en Railway.',
-            ], 400);
-        }
+        // Get SMTP settings
+        $smtpSettings = \App\Models\Setting::where('company_id', 1)
+            ->whereIn('code', [
+                'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password',
+                'smtp_encryption', 'smtp_from_email', 'smtp_from_name'
+            ])
+            ->pluck('value', 'code')
+            ->toArray();
 
-        // Configurar mail usando variables de entorno (NO base de datos)
+        // Configure mail settings
         config([
-            'mail.default' => env('MAIL_MAILER', 'smtp'),
-            'mail.mailers.smtp.transport' => 'smtp',
-            'mail.mailers.smtp.host' => env('MAIL_HOST'),
-            'mail.mailers.smtp.port' => env('MAIL_PORT', 587),
-            'mail.mailers.smtp.username' => env('MAIL_USERNAME'),
-            'mail.mailers.smtp.password' => env('MAIL_PASSWORD'),
-            'mail.mailers.smtp.encryption' => env('MAIL_ENCRYPTION', 'tls'),
-            'mail.mailers.smtp.verify_peer' => false,
-            'mail.mailers.smtp.verify_peer_name' => false,
-            'mail.mailers.smtp.allow_self_signed' => true,
-            'mail.mailers.smtp.timeout' => 30,
-            'mail.from.address' => env('MAIL_FROM_ADDRESS'),
-            'mail.from.name' => env('MAIL_FROM_NAME'),
+            'mail.mailers.smtp.host' => $smtpSettings['smtp_host'],
+            'mail.mailers.smtp.port' => $smtpSettings['smtp_port'],
+            'mail.mailers.smtp.username' => $smtpSettings['smtp_username'] ?? '',
+            'mail.mailers.smtp.password' => $smtpSettings['smtp_password'] ?? '',
+            'mail.mailers.smtp.encryption' => $smtpSettings['smtp_encryption'] ?? 'tls',
+            'mail.from.address' => $smtpSettings['smtp_from_email'] ?? 'noreply@example.com',
+            'mail.from.name' => $smtpSettings['smtp_from_name'] ?? 'Sistema de Facturación',
         ]);
 
         $subject = $request->subject ?? 'Prueba de Email - Sistema de Facturación';
@@ -99,11 +94,10 @@ Route::post('/test-email', function (Request $request) {
 
         return response()->json([
             'success' => true,
-            'message' => 'Correo enviado exitosamente usando variables de entorno',
+            'message' => 'Correo enviado exitosamente',
             'data' => [
                 'recipient' => $request->email,
                 'subject' => $subject,
-                'source' => 'environment_variables',
             ],
         ]);
 
@@ -111,7 +105,6 @@ Route::post('/test-email', function (Request $request) {
         \Illuminate\Support\Facades\Log::error('Test email failed', [
             'error' => $e->getMessage(),
             'email' => $request->email,
-            'source' => 'environment_variables_only',
         ]);
 
         return response()->json([

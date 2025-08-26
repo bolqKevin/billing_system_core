@@ -703,31 +703,39 @@ class InvoiceController extends Controller
         ]);
 
         try {
-            // Obtener usuario autenticado para información de la empresa
+            // Get SMTP settings from database
             $user = Auth::user();
+            $companyId = $user ? $user->company_id : 1;
             
-            // Verificar variables de entorno (NO buscar en base de datos)
-            if (!env('MAIL_HOST') || !env('MAIL_PASSWORD') || !env('MAIL_USERNAME')) {
+            $smtpSettings = Setting::where('company_id', $companyId)
+                ->whereIn('code', [
+                    'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password',
+                    'smtp_encryption', 'smtp_from_email', 'smtp_from_name'
+                ])
+                ->pluck('value', 'code')
+                ->toArray();
+
+            // Validate SMTP settings
+            if (empty($smtpSettings['smtp_host']) || empty($smtpSettings['smtp_port'])) {
                 return response()->json([
-                    'message' => 'Configuración SMTP no encontrada en variables de entorno. Configure MAIL_HOST, MAIL_PASSWORD y MAIL_USERNAME en Railway.',
+                    'message' => 'Configuración SMTP no encontrada. Por favor, configure el servidor de correo en Configuración > Email.',
                 ], 400);
             }
 
-            // Configurar mail usando variables de entorno (NO base de datos)
+            // Configure mail settings dynamically
             config([
-                'mail.default' => env('MAIL_MAILER', 'smtp'),
+                'mail.default' => 'smtp',
                 'mail.mailers.smtp.transport' => 'smtp',
-                'mail.mailers.smtp.host' => env('MAIL_HOST'),
-                'mail.mailers.smtp.port' => env('MAIL_PORT', 587),
-                'mail.mailers.smtp.username' => env('MAIL_USERNAME'),
-                'mail.mailers.smtp.password' => env('MAIL_PASSWORD'),
-                'mail.mailers.smtp.encryption' => env('MAIL_ENCRYPTION', 'tls'),
+                'mail.mailers.smtp.host' => $smtpSettings['smtp_host'],
+                'mail.mailers.smtp.port' => $smtpSettings['smtp_port'],
+                'mail.mailers.smtp.username' => $smtpSettings['smtp_username'] ?? '',
+                'mail.mailers.smtp.password' => $smtpSettings['smtp_password'] ?? '',
+                'mail.mailers.smtp.encryption' => $smtpSettings['smtp_encryption'] ?? 'tls',
                 'mail.mailers.smtp.verify_peer' => false,
                 'mail.mailers.smtp.verify_peer_name' => false,
                 'mail.mailers.smtp.allow_self_signed' => true,
-                'mail.mailers.smtp.timeout' => 30,
-                'mail.from.address' => env('MAIL_FROM_ADDRESS'),
-                'mail.from.name' => env('MAIL_FROM_NAME'),
+                'mail.from.address' => $smtpSettings['smtp_from_email'] ?? 'noreply@example.com',
+                'mail.from.name' => $smtpSettings['smtp_from_name'] ?? 'Sistema de Facturación',
             ]);
 
             // Generate PDF
