@@ -181,28 +181,8 @@ class AuthController extends Controller
      */
     public function sendPasswordResetOtp(Request $request)
     {
-        // Configure mail settings from database
-        $smtpSettings = \App\Models\Setting::where('company_id', 1)
-            ->whereIn('code', [
-                'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password',
-                'smtp_encryption', 'smtp_from_email', 'smtp_from_name'
-            ])
-            ->pluck('value', 'code')
-            ->toArray();
-
-        if (!empty($smtpSettings['smtp_host'])) {
-            config([
-                'mail.default' => 'smtp',
-                'mail.mailers.smtp.transport' => 'smtp',
-                'mail.mailers.smtp.host' => $smtpSettings['smtp_host'],
-                'mail.mailers.smtp.port' => $smtpSettings['smtp_port'],
-                'mail.mailers.smtp.username' => $smtpSettings['smtp_username'],
-                'mail.mailers.smtp.password' => $smtpSettings['smtp_password'],
-                'mail.mailers.smtp.encryption' => $smtpSettings['smtp_encryption'],
-                'mail.from.address' => $smtpSettings['smtp_from_email'],
-                'mail.from.name' => $smtpSettings['smtp_from_name'],
-            ]);
-        }
+        // La configuración de email se maneja automáticamente por el middleware ConfigureMail
+        // que prioriza las variables de entorno de Railway sobre la configuración de base de datos
         $request->validate([
             'email' => 'required|email',
         ]);
