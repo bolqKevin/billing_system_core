@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Services\SendGridService;
 
 class AuthController extends Controller
 {
@@ -236,12 +237,22 @@ class AuthController extends Controller
             ]
         );
 
-        // Send email with OTP
+        // Send email with OTP using SendGrid API REST
         try {
-            Mail::raw("Su código de verificación para restablecer la contraseña es: {$otp}\n\nEste código expira en 10 minutos.\n\nSi no solicitó este cambio, ignore este mensaje.", function ($message) use ($request) {
-                $message->to($request->email)
-                        ->subject('Código de Verificación - Restablecer Contraseña');
-            });
+            $sendGridService = new SendGridService();
+            
+            $message = "Su código de verificación para restablecer la contraseña es: {$otp}\n\nEste código expira en 10 minutos.\n\nSi no solicitó este cambio, ignore este mensaje.";
+            
+            $result = $sendGridService->sendSimpleEmail(
+                $request->email,
+                'Código de Verificación - Restablecer Contraseña',
+                $message,
+                false // Plain text
+            );
+            
+            if (!$result) {
+                throw new \Exception('SendGrid API REST failed to send OTP email');
+            }
 
             Log::info('Password reset OTP sent', [
                 'email' => $request->email,

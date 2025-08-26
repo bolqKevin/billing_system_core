@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use App\Helpers\AuditHelper;
+use App\Services\SendGridService;
 use TCPDF;
 
 class InvoiceController extends Controller
@@ -910,27 +911,24 @@ class InvoiceController extends Controller
             $subject = $request->subject ?? 'Factura ' . $invoice->invoice_number . ' - ' . $companyName;
             $message = $request->message ?? 'Adjunto encontrará la factura ' . $invoice->invoice_number . ' por un monto de ₡ ' . number_format($invoice->grand_total, 2) . '.\n\nGracias por su preferencia.\n\nSaludos cordiales,\n' . $companyName;
 
-            // Send email with all attachments
+            // Send email with all attachments using SendGrid API REST
             try {
-                Mail::send([], [], function ($mailMessage) use ($request, $subject, $message, $tempPath, $xmlInvoicePath, $xmlResponsePath, $invoice) {
-                    $mailMessage->to($request->recipient_email)
-                            ->subject($subject)
-                            ->html($message)
-                            ->attach($tempPath, [
-                                'as' => 'factura-' . $invoice->invoice_number . '.pdf',
-                                'mime' => 'application/pdf',
-                            ])
-                            ->attach($xmlInvoicePath, [
-                                'as' => 'factura-' . $invoice->invoice_number . '.xml',
-                                'mime' => 'application/xml',
-                            ])
-                            ->attach($xmlResponsePath, [
-                                'as' => 'respuesta-' . $invoice->invoice_number . '.xml',
-                                'mime' => 'application/xml',
-                            ]);
-                });
+                $sendGridService = new SendGridService();
                 
-                Log::info('Email sent successfully with all attachments', [
+                $result = $sendGridService->sendInvoiceEmail(
+                    $request->recipient_email,
+                    $subject,
+                    $message,
+                    $tempPath,
+                    $xmlInvoicePath,
+                    $xmlResponsePath
+                );
+                
+                if (!$result) {
+                    throw new \Exception('SendGrid API REST failed to send email');
+                }
+                
+                Log::info('SendGrid API REST email sent successfully with all attachments', [
                     'invoice_id' => $invoice->id,
                     'invoice_number' => $invoice->invoice_number,
                     'recipient' => $request->recipient_email,
@@ -941,7 +939,7 @@ class InvoiceController extends Controller
                 ]);
                 
             } catch (\Exception $e) {
-                Log::error('Email sending failed', [
+                Log::error('SendGrid API REST email sending failed', [
                     'invoice_id' => $invoice->id,
                     'error' => $e->getMessage(),
                     'recipient' => $request->recipient_email
@@ -958,7 +956,7 @@ class InvoiceController extends Controller
                     unlink($xmlResponsePath);
                 }
                 
-                throw new \Exception('Error enviando correo: ' . $e->getMessage());
+                throw new \Exception('Error enviando correo con SendGrid API REST: ' . $e->getMessage());
             }
 
             // Log successful email send
@@ -1061,12 +1059,28 @@ class InvoiceController extends Controller
             $subject = $request->subject ?? 'Factura ' . $invoice->invoice_number . ' - ' . $companyName;
             $message = $request->message ?? 'Adjunto encontrará la factura ' . $invoice->invoice_number . ' por un monto de ₡' . number_format($invoice->grand_total, 2) . '.\n\nGracias por su preferencia.\n\nSaludos cordiales,\n' . $companyName;
 
-            // Send email without PDF
-            Mail::send([], [], function ($mailMessage) use ($request, $subject, $message, $invoice) {
-                $mailMessage->to($request->recipient_email)
-                        ->subject($subject)
-                        ->html($message);
-            });
+            // Send email without PDF using SendGrid API REST
+            try {
+                $sendGridService = new SendGridService();
+                
+                $result = $sendGridService->sendSimpleEmail(
+                    $request->recipient_email,
+                    $subject,
+                    $message,
+                    true // HTML
+                );
+                
+                if (!$result) {
+                    throw new \Exception('SendGrid API REST failed to send email');
+                }
+            } catch (\Exception $e) {
+                Log::error('SendGrid API REST email sending failed (without PDF)', [
+                    'invoice_id' => $invoice->id,
+                    'error' => $e->getMessage(),
+                    'recipient' => $request->recipient_email
+                ]);
+                throw $e;
+            }
 
             // Record email send
             EmailSend::create([
