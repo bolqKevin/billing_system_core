@@ -16,7 +16,8 @@ class SendGridService
     public function __construct()
     {
         $apiKey = env('SENDGRID_API_TOKEN');
-        $this->fromEmail = env('MAIL_FROM_ADDRESS', 'bolq3kevin@gmail.com');
+        // Usar el email verificado que funciona
+        $this->fromEmail = 'bolq3kevin@gmail.com'; // Email verificado en SendGrid
         $this->fromName = env('MAIL_FROM_NAME', 'Sistema de Facturación');
 
         if (!$apiKey) {
